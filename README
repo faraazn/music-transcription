@@ -1,0 +1,7 @@
+Music transcription.
+
+1. Install pretty_midi: https://github.com/craffel/pretty-midi
+2. Install fluidsynth: brew install fluidsynth pkg-config
+3. Install pyfluidsynth: https://github.com/nwhitehead/pyfluidsynth
+4. Install librosa: pip install librosa
+5. Download midi files: https://colinraffel.com/projects/lmd/
