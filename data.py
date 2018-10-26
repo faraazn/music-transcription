@@ -66,7 +66,7 @@ def generate_data(num_songs):
 
     return (spectrograms, piano_rolls)
 
-def generate_samples(num_samples):
+def generate_samples(num_samples, num_songs):
     """Generates a set of num_samples audio frame inputs and pitch labels.
 
     Args:
@@ -75,7 +75,7 @@ def generate_samples(num_samples):
     Returns:
         A tuple (inputs, labels).
     """
-    num_songs = 10
+    print("generating songs...")
     audio_inputs, pianoroll_labels = generate_data(num_songs)
     print("done generating songs")
 
@@ -98,8 +98,3 @@ def generate_samples(num_samples):
     labels = np.array(labels)
 
     return inputs, labels
-
-
-inputs, labels = generate_samples(100)
-print(inputs.shape)
-print(labels.shape)
