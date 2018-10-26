@@ -5,3 +5,6 @@ Music transcription.
 3. Install pyfluidsynth: https://github.com/nwhitehead/pyfluidsynth
 4. Install librosa: pip install librosa
 5. Download midi files: https://colinraffel.com/projects/lmd/
+
+Links.
+- FFT and CQT Explanation: https://www.youtube.com/watch?v=Cl-m4X3rwac
