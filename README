@@ -4,7 +4,10 @@ Music transcription.
 2. Install fluidsynth: brew install fluidsynth pkg-config
 3. Install pyfluidsynth: https://github.com/nwhitehead/pyfluidsynth
 4. Install librosa: pip install librosa
-5. Download midi files: https://colinraffel.com/projects/lmd/
+5. Download data: 
+   - Lakh Midi Dataset: https://colinraffel.com/projects/lmd/
+   - MAPS Dataset: https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR
+6. Install bazel: brew install bazel
 
 Links.
 - FFT and CQT Explanation: https://www.youtube.com/watch?v=Cl-m4X3rwac
