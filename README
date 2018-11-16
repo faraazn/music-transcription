@@ -9,5 +9,7 @@ Music transcription.
    - MAPS Dataset: https://amubox.univ-amu.fr/index.php/s/iNG0xc5Td1Nv4rR
 6. Install bazel: brew install bazel
 
-Links.
+Links and Info.
+- Magenta: https://github.com/tensorflow/magenta
+- bazel import path issue: build --noexperimental_python_import_all_repositories
 - FFT and CQT Explanation: https://www.youtube.com/watch?v=Cl-m4X3rwac
