@@ -47,7 +47,7 @@ tf.app.flags.DEFINE_integer('max_length', 20, 'maximum segment length')
 tf.app.flags.DEFINE_integer('sample_rate', 16000, 'desired sample rate')
 
 test_dirs = ['ENSTDkCl/MUS']
-train_dirs = ['AkPnBcht/MUS', 'AkPnBsdf/MUS']
+train_dirs = ['AkPnBcht/MUS']
 
 
 def _find_inactive_ranges(note_sequence):

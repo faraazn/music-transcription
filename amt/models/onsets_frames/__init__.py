@@ -12,16 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-licenses(["notice"])  # Apache 2.0
+"""Imports Onsets and Frames model."""
 
-py_library(
-    name = "amt",
-    srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
-    visibility = ["//amt:__subpackages__"],
-    deps = [
-	"//amt/common",
-        "//amt/music",
-        "//amt/protobuf",
-    ],
-)
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function

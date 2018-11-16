@@ -1,4 +1,4 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2016 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Description:
+# Libraries for using TensorFlow with music and art.
+
+package(
+    default_visibility = ["//amt:__subpackages__"],
+)
+
 licenses(["notice"])  # Apache 2.0
 
+# The Magenta public API.
 py_library(
-    name = "amt",
+    name = "common",
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
-    visibility = ["//amt:__subpackages__"],
     deps = [
-	"//amt/common",
-        "//amt/music",
-        "//amt/protobuf",
+        ":sequence_example_lib",
+        ":tf_utils",
+    ],
+)
+
+py_library(
+    name = "sequence_example_lib",
+    srcs = ["sequence_example_lib.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        # tensorflow dep
+    ],
+)
+
+py_library(
+    name = "tf_utils",
+    srcs = ["tf_utils.py"],
+    srcs_version = "PY2AND3",
+    deps = [
+        # tensorflow dep
     ],
 )

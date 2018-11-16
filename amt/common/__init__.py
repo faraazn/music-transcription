@@ -1,4 +1,4 @@
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2016 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-licenses(["notice"])  # Apache 2.0
+"""Imports objects into the top-level common namespace."""
 
-py_library(
-    name = "amt",
-    srcs = ["__init__.py"],
-    srcs_version = "PY2AND3",
-    visibility = ["//amt:__subpackages__"],
-    deps = [
-	"//amt/common",
-        "//amt/music",
-        "//amt/protobuf",
-    ],
-)
+from __future__ import absolute_import
+
+from .sequence_example_lib import count_records
+from .sequence_example_lib import flatten_maybe_padded_sequences
+from .sequence_example_lib import get_padded_batch
+from .sequence_example_lib import make_sequence_example
+from .tf_utils import merge_hparams
