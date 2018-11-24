@@ -37,18 +37,18 @@ from amt.music import sequences_lib
 from amt.protobuf import music_pb2
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('input_dir', '/Users/faraaz/workspace/music-transcription/data/MAPS/',
+tf.app.flags.DEFINE_string('input_dir', '/home/faraaz/workspace/music-transcription/data/MAPS/',
                            'Directory where the un-zipped MAPS files are.')
-tf.app.flags.DEFINE_string('output_dir', '/Users/faraaz/workspace/music-transcription/',
+tf.app.flags.DEFINE_string('output_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/',
                            'Directory where the two output TFRecord files '
                            '(train and test) will be placed.')
 tf.app.flags.DEFINE_integer('min_length', 5, 'minimum segment length')
 tf.app.flags.DEFINE_integer('max_length', 20, 'maximum segment length')
 tf.app.flags.DEFINE_integer('sample_rate', 16000, 'desired sample rate')
 
-test_dirs = ['ENSTDkCl/MUS']
-train_dirs = ['AkPnBcht/MUS']
-
+test_dirs = ['ENSTDkCl/MUS', 'ENSTDkAm/MUS']
+train_dirs = ['AkPnBcht/MUS', 'AkPnBsdf/MUS', 'AkPnCGdD/MUS', 'AkPnStgb/MUS',
+              'SptkBGAm/MUS', 'SptkBGCl/MUS', 'StbgTGd2/MUS']
 
 def _find_inactive_ranges(note_sequence):
   """Returns ranges where no notes are active in the note_sequence."""
@@ -250,51 +250,53 @@ def generate_train_set(exclude_ids):
     for pair in train_file_pairs:
       print("{} of {}: {}".format(count, len(train_file_pairs), pair[0]))
       count += 1
-      # load the wav data
-      wav_data = tf.gfile.Open(pair[0], 'rb').read()
-      samples = audio_io.wav_data_to_samples(wav_data, FLAGS.sample_rate)
-      samples = librosa.util.normalize(samples, norm=np.inf)
+      try:
+        # load the wav data
+        wav_data = tf.gfile.Open(pair[0], 'rb').read()
+        samples = audio_io.wav_data_to_samples(wav_data, FLAGS.sample_rate)
+        samples = librosa.util.normalize(samples, norm=np.inf)
 
-      # load the midi data and convert to a notesequence
-      midi_data = tf.gfile.Open(pair[1], 'rb').read()
-      ns = midi_io.midi_to_sequence_proto(midi_data)
+        # load the midi data and convert to a notesequence
+        midi_data = tf.gfile.Open(pair[1], 'rb').read()
+        ns = midi_io.midi_to_sequence_proto(midi_data)
 
-      splits = find_split_points(ns, samples, FLAGS.sample_rate,
-                                 FLAGS.min_length, FLAGS.max_length)
+        splits = find_split_points(ns, samples, FLAGS.sample_rate,
+                                   FLAGS.min_length, FLAGS.max_length)
 
-      velocities = [note.velocity for note in ns.notes]
-      velocity_max = np.max(velocities)
-      velocity_min = np.min(velocities)
-      new_velocity_tuple = music_pb2.VelocityRange(
-          min=velocity_min, max=velocity_max)
+        velocities = [note.velocity for note in ns.notes]
+        velocity_max = np.max(velocities)
+        velocity_min = np.min(velocities)
+        new_velocity_tuple = music_pb2.VelocityRange(
+            min=velocity_min, max=velocity_max)
 
-      for start, end in zip(splits[:-1], splits[1:]):
-        if end - start < FLAGS.min_length:
-          continue
+        for start, end in zip(splits[:-1], splits[1:]):
+          if end - start < FLAGS.min_length:
+            continue
 
-        new_ns = sequences_lib.extract_subsequence(ns, start, end)
-        new_wav_data = audio_io.crop_wav_data(wav_data, FLAGS.sample_rate,
-                                              start, end - start)
-        example = tf.train.Example(features=tf.train.Features(feature={
-            'id':
-            tf.train.Feature(bytes_list=tf.train.BytesList(
-                value=[pair[0].encode()]
-                )),
-            'sequence':
-            tf.train.Feature(bytes_list=tf.train.BytesList(
-                value=[new_ns.SerializeToString()]
-                )),
-            'audio':
-            tf.train.Feature(bytes_list=tf.train.BytesList(
-                value=[new_wav_data]
-                )),
-            'velocity_range':
-            tf.train.Feature(bytes_list=tf.train.BytesList(
-                value=[new_velocity_tuple.SerializeToString()]
-                )),
-            }))
-        writer.write(example.SerializeToString())
-
+          new_ns = sequences_lib.extract_subsequence(ns, start, end)
+          new_wav_data = audio_io.crop_wav_data(wav_data, FLAGS.sample_rate,
+                                                start, end - start)
+          example = tf.train.Example(features=tf.train.Features(feature={
+              'id':
+              tf.train.Feature(bytes_list=tf.train.BytesList(
+                  value=[pair[0].encode()]
+                  )),
+              'sequence':
+              tf.train.Feature(bytes_list=tf.train.BytesList(
+                  value=[new_ns.SerializeToString()]
+                  )),
+              'audio':
+              tf.train.Feature(bytes_list=tf.train.BytesList(
+                  value=[new_wav_data]
+                  )),
+              'velocity_range':
+              tf.train.Feature(bytes_list=tf.train.BytesList(
+                  value=[new_velocity_tuple.SerializeToString()]
+                  )),
+              }))
+          writer.write(example.SerializeToString())
+      except:
+        print("Error occurred.");
 
 def generate_test_set():
   """Generate the test TFRecord."""
@@ -317,39 +319,42 @@ def generate_test_set():
     for pair in test_file_pairs:
       print("{} of {}: {}".format(count, len(test_file_pairs), pair[0]))
       count += 1
-      # load the wav data and resample it.
-      samples = audio_io.load_audio(pair[0], FLAGS.sample_rate)
-      wav_data = audio_io.samples_to_wav_data(samples, FLAGS.sample_rate)
+      try:
+        # load the wav data and resample it.
+        samples = audio_io.load_audio(pair[0], FLAGS.sample_rate)
+        wav_data = audio_io.samples_to_wav_data(samples, FLAGS.sample_rate)
 
-      # load the midi data and convert to a notesequence
-      midi_data = tf.gfile.Open(pair[1], 'rb').read()
-      ns = midi_io.midi_to_sequence_proto(midi_data)
+        # load the midi data and convert to a notesequence
+        midi_data = tf.gfile.Open(pair[1], 'rb').read()
+        ns = midi_io.midi_to_sequence_proto(midi_data)
 
-      velocities = [note.velocity for note in ns.notes]
-      velocity_max = np.max(velocities)
-      velocity_min = np.min(velocities)
-      new_velocity_tuple = music_pb2.VelocityRange(
-          min=velocity_min, max=velocity_max)
+        velocities = [note.velocity for note in ns.notes]
+        velocity_max = np.max(velocities)
+        velocity_min = np.min(velocities)
+        new_velocity_tuple = music_pb2.VelocityRange(
+            min=velocity_min, max=velocity_max)
 
-      example = tf.train.Example(features=tf.train.Features(feature={
-          'id':
-          tf.train.Feature(bytes_list=tf.train.BytesList(
-              value=[pair[0].encode()]
-              )),
-          'sequence':
-          tf.train.Feature(bytes_list=tf.train.BytesList(
-              value=[ns.SerializeToString()]
-              )),
-          'audio':
-          tf.train.Feature(bytes_list=tf.train.BytesList(
-              value=[wav_data]
-              )),
-          'velocity_range':
-          tf.train.Feature(bytes_list=tf.train.BytesList(
-              value=[new_velocity_tuple.SerializeToString()]
-              )),
-          }))
-      writer.write(example.SerializeToString())
+        example = tf.train.Example(features=tf.train.Features(feature={
+            'id':
+            tf.train.Feature(bytes_list=tf.train.BytesList(
+                value=[pair[0].encode()]
+                )),
+            'sequence':
+            tf.train.Feature(bytes_list=tf.train.BytesList(
+                value=[ns.SerializeToString()]
+                )),
+            'audio':
+            tf.train.Feature(bytes_list=tf.train.BytesList(
+                value=[wav_data]
+                )),
+            'velocity_range':
+            tf.train.Feature(bytes_list=tf.train.BytesList(
+                value=[new_velocity_tuple.SerializeToString()]
+                )),
+            }))
+        writer.write(example.SerializeToString())
+      except:
+        print("Error occurred.")
 
   return [filename_to_id(wav) for wav, _ in test_file_pairs]
 
