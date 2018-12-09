@@ -28,10 +28,10 @@ from amt.models.onsets_frames import train_util
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'examples_path', '~/workspace/music-transcription/maps_config2_train.tfrecord',
+    'examples_path', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/clean_midi_train.tfrecord',
     'Path to a TFRecord file of train/eval examples.')
 tf.app.flags.DEFINE_string(
-    'run_dir', '~/workspace/music-transcription/amt/models/onsets_frames/run/',
+    'run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run2/',
     'Path where checkpoints and summary events will be located during '
     'training and evaluation. Separate subdirectories `train` and `eval` '
     'will be created within this directory.')
@@ -44,7 +44,7 @@ tf.app.flags.DEFINE_string(
     'Path to the checkpoint to use in `test` mode. If not provided, latest '
     'in `run_dir` will be used.')
 tf.app.flags.DEFINE_integer(
-    'num_steps', 10,
+    'num_steps', 50000,
     'Number of training steps or `None` for infinite.')
 tf.app.flags.DEFINE_integer(
     'eval_num_batches', None,
@@ -116,7 +116,6 @@ def main(unused_argv):
 
 def console_entry_point():
   tf.app.run(main)
-
 
 if __name__ == '__main__':
   console_entry_point()

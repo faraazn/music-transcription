@@ -37,7 +37,7 @@ from amt.protobuf import music_pb2
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'acoustic_run_dir', None,
+    'acoustic_run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run/',
     'Path to look for acoustic checkpoints. Should contain subdir `train`.')
 tf.app.flags.DEFINE_string(
     'acoustic_checkpoint_filename', None,

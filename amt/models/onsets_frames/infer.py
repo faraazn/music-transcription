@@ -40,14 +40,14 @@ from amt.music import sequences_lib
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'acoustic_run_dir', None,
+    'acoustic_run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run/',
     'Path to look for acoustic checkpoints. Should contain subdir `train`.')
 tf.app.flags.DEFINE_string(
     'acoustic_checkpoint_filename', None,
     'Filename of the checkpoint to use. If not specified, will use the latest '
     'checkpoint')
 tf.app.flags.DEFINE_string(
-    'examples_path', None,
+    'examples_path', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/maps_config2_test.tfrecord',
     'Path to TFRecord of test examples.')
 tf.app.flags.DEFINE_string(
     'run_dir', '~/tmp/onsets_frames/infer',

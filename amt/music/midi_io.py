@@ -139,14 +139,15 @@ def midi_to_note_sequence(midi_data):
            midi_instrument.is_drum, midi_control_change))
 
   for program, instrument, is_drum, midi_note in midi_notes:
-    note = sequence.notes.add()
-    note.instrument = instrument
-    note.program = program
-    note.start_time = midi_note.start
-    note.end_time = midi_note.end
-    note.pitch = midi_note.pitch
-    note.velocity = midi_note.velocity
-    note.is_drum = is_drum
+    if midi_note.pitch < 109 and midi_note.pitch > 20:
+      note = sequence.notes.add()
+      note.instrument = instrument
+      note.program = program
+      note.start_time = midi_note.start
+      note.end_time = midi_note.end
+      note.pitch = midi_note.pitch
+      note.velocity = midi_note.velocity
+      note.is_drum = is_drum
 
   for program, instrument, is_drum, midi_pitch_bend in midi_pitch_bends:
     pitch_bend = sequence.pitch_bends.add()

@@ -37,7 +37,8 @@ from amt.music import sequences_lib
 from amt.protobuf import music_pb2
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('input_dir', '/home/faraaz/workspace/music-transcription/data/MAPS/',
+DATASET = 'clean_midi'
+tf.app.flags.DEFINE_string('input_dir', '/home/faraaz/workspace/music-transcription/data/{}/'.format(DATASET),
                            'Directory where the un-zipped MAPS files are.')
 tf.app.flags.DEFINE_string('output_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/',
                            'Directory where the two output TFRecord files '
@@ -228,10 +229,10 @@ def filename_to_id(filename):
                   os.path.basename(filename)).group(1)
 
 
-def generate_train_set(exclude_ids):
+def generate_train_set(train_file_pairs):
   """Generate the train TFRecord."""
-  train_file_pairs = []
-  for directory in train_dirs:
+  """train_file_pairs = []
+  for directory in train_dirs:i
     path = os.path.join(FLAGS.input_dir, directory)
     path = os.path.join(path, '*.wav')
     wav_files = glob.glob(path)
@@ -239,11 +240,11 @@ def generate_train_set(exclude_ids):
     for wav_file in wav_files:
       base_name_root, _ = os.path.splitext(wav_file)
       mid_file = base_name_root + '.mid'
-      if filename_to_id(wav_file) not in exclude_ids:
+      if wav_file not in exclude_files:
         train_file_pairs.append((wav_file, mid_file))
-
+  """
   train_output_name = os.path.join(FLAGS.output_dir,
-                                   'maps_config2_train.tfrecord')
+                                   '{}_train.tfrecord'.format(DATASET))
 
   count = 0
   with tf.python_io.TFRecordWriter(train_output_name) as writer:
@@ -301,19 +302,37 @@ def generate_train_set(exclude_ids):
 def generate_test_set():
   """Generate the test TFRecord."""
   test_file_pairs = []
+
+  """
   for directory in test_dirs:
     path = os.path.join(FLAGS.input_dir, directory)
-    path = os.path.join(path, '*.wav')
-    wav_files = glob.glob(path)
+    # path = os.path.join(path, '*.wav')
+    wav_files = glob.iglob('src/**/*.wav', recursive=True)
     # find matching mid files
     for wav_file in wav_files:
       base_name_root, _ = os.path.splitext(wav_file)
+      # all wav files should have corresponding mid files
       mid_file = base_name_root + '.mid'
       test_file_pairs.append((wav_file, mid_file))
-
+  """
+  wav_files = glob.iglob('{}/**/*.wav'.format(FLAGS.input_dir), recursive=True)
+  for wav_file in wav_files:
+    base_name_root, _ = os.path.splitext(wav_file)
+    # all wav files should have corresponding mid files
+    # timidity replaces . with _, so multiple versions will not exist
+    mid_file = base_name_root + '.mid'
+    test_file_pairs.append((wav_file, mid_file))
   test_output_name = os.path.join(FLAGS.output_dir,
-                                  'maps_config2_test.tfrecord')
-  
+                                  '{}_test.tfrecord'.format(DATASET))
+  total_files = int(len(test_file_pairs) / 15) # lakh midi is about 20x MAPS dataset size
+  print('found {} total pairs'.format(total_files))
+  train_file_pairs = test_file_pairs[int(total_files/4):total_files]
+  test_file_pairs = test_file_pairs[:int(total_files/4)] # 25% test, 75% train
+  print('check files different')
+  train_wavs = [wav for wav, _ in train_file_pairs]
+  test_wavs = [wav for wav, _ in test_file_pairs]
+  for wav in test_wavs:
+    assert wav not in train_wavs
   count = 0
   with tf.python_io.TFRecordWriter(test_output_name) as writer:
     for pair in test_file_pairs:
@@ -353,15 +372,14 @@ def generate_test_set():
                 )),
             }))
         writer.write(example.SerializeToString())
-      except:
-        print("Error occurred.")
-
-  return [filename_to_id(wav) for wav, _ in test_file_pairs]
+      except Exception as e:
+        print("Error occurred: {}".format(e))
+  return train_file_pairs
 
 
 def main(unused_argv):
-  test_ids = generate_test_set()
-  generate_train_set(test_ids)
+  train_file_pairs = generate_test_set()
+  generate_train_set(train_file_pairs)
 
 
 def console_entry_point():
