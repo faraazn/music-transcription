@@ -153,3 +153,14 @@ py_binary(
         # numpy dep
     ],
 )
+
+py_binary(
+    name = "check_records",
+    srcs = ["check_records.py"],
+    srcs_version = "PY2AND3",
+    visibility = ["//amt/tools/pip:__subpackages__"],
+    deps = [
+        "//amt",
+        # tensorflow dep
+    ],
+)
