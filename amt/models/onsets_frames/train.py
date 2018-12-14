@@ -28,7 +28,7 @@ from amt.models.onsets_frames import train_util
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'examples_path', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/clean_midi_train.tfrecord',
+    'examples_path', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/clean_midi_train-big.tfrecord',
     'Path to a TFRecord file of train/eval examples.')
 tf.app.flags.DEFINE_string(
     'run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run2/',
@@ -44,7 +44,7 @@ tf.app.flags.DEFINE_string(
     'Path to the checkpoint to use in `test` mode. If not provided, latest '
     'in `run_dir` will be used.')
 tf.app.flags.DEFINE_integer(
-    'num_steps', 50000,
+    'num_steps', 5000,
     'Number of training steps or `None` for infinite.')
 tf.app.flags.DEFINE_integer(
     'eval_num_batches', None,

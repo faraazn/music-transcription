@@ -30,6 +30,7 @@ import re
 import librosa
 import numpy as np
 import tensorflow as tf
+import time
 
 from amt.music import audio_io
 from amt.music import midi_io
@@ -142,7 +143,7 @@ def find_split_points(note_sequence, samples, sample_rate, min_length,
   Returns:
       A list of split points in seconds from the beginning of the file.
   """
-
+  #return [209.71571879166663, 216.14815669166666]
   if not note_sequence.notes:
     return []
 
@@ -209,17 +210,16 @@ def find_split_points(note_sequence, samples, sample_rate, min_length,
       new_time = min(np.mean(ranges_sustain[pos - 1]), max_advance)
       split_points.append(new_time)
 
-  if split_points[-1] != end_time:
+  if end_time != split_points[-1] and end_time - split_points[-1] > min_length:
     split_points.append(end_time)
 
   # ensure that we've generated a valid sequence of splits
   for prev, curr in zip(split_points[:-1], split_points[1:]):
     assert curr > prev
     assert curr - prev <= max_length + 1e-8
-    if curr < end_time:
-      assert curr - prev >= min_length - 1e-8
+    #if curr < end_time:
+    assert curr - prev >= min_length - 1e-8
   assert end_time - split_points[-1] < max_length
-
   return split_points
 
 
@@ -245,7 +245,6 @@ def generate_train_set(train_file_pairs):
   """
   train_output_name = os.path.join(FLAGS.output_dir,
                                    '{}_train.tfrecord'.format(DATASET))
-
   count = 0
   with tf.python_io.TFRecordWriter(train_output_name) as writer:
     for pair in train_file_pairs:
@@ -271,12 +270,13 @@ def generate_train_set(train_file_pairs):
             min=velocity_min, max=velocity_max)
 
         for start, end in zip(splits[:-1], splits[1:]):
-          if end - start < FLAGS.min_length:
-            continue
-
+          #assert end - start >= FLAGS.min_length
           new_ns = sequences_lib.extract_subsequence(ns, start, end)
           new_wav_data = audio_io.crop_wav_data(wav_data, FLAGS.sample_rate,
                                                 start, end - start)
+          samples = audio_io.wav_data_to_samples(new_wav_data, FLAGS.sample_rate)
+          if len(samples) < 5*16000:
+            continue
           example = tf.train.Example(features=tf.train.Features(feature={
               'id':
               tf.train.Feature(bytes_list=tf.train.BytesList(
@@ -324,10 +324,12 @@ def generate_test_set():
     test_file_pairs.append((wav_file, mid_file))
   test_output_name = os.path.join(FLAGS.output_dir,
                                   '{}_test.tfrecord'.format(DATASET))
-  total_files = int(len(test_file_pairs) / 15) # lakh midi is about 20x MAPS dataset size
+  total_files = 100#int(len(test_file_pairs) / 20) # lakh midi is about 20x MAPS dataset size
   print('found {} total pairs'.format(total_files))
-  train_file_pairs = test_file_pairs[int(total_files/4):total_files]
-  test_file_pairs = test_file_pairs[:int(total_files/4)] # 25% test, 75% train
+  buggy_wav = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.wav"
+  buggy_mid = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.mid"
+  train_file_pairs = [(buggy_wav, buggy_mid)]#test_file_pairs[:100]#[int(total_files/4):total_files]
+  test_file_pairs = []#[:int(total_files/4)] # 25% test, 75% train
   print('check files different')
   train_wavs = [wav for wav, _ in train_file_pairs]
   test_wavs = [wav for wav, _ in test_file_pairs]
@@ -378,11 +380,14 @@ def generate_test_set():
 
 
 def main(unused_argv):
+  start_time = time.time()
   train_file_pairs = generate_test_set()
   generate_train_set(train_file_pairs)
+  print("time elapsed: {}s".format(time.time()-start_time))
 
 
 def console_entry_point():
+  
   tf.app.run(main)
 
 
