@@ -251,16 +251,16 @@ def generate_train_set(train_file_pairs):
       print("{} of {}: {}".format(count, len(train_file_pairs), pair[0]))
       count += 1
       try:
-        # load the wav data
-        wav_data = tf.gfile.Open(pair[0], 'rb').read()
-        samples = audio_io.wav_data_to_samples(wav_data, FLAGS.sample_rate)
-        samples = librosa.util.normalize(samples, norm=np.inf)
-
         # load the midi data and convert to a notesequence
         midi_data = tf.gfile.Open(pair[1], 'rb').read()
         ns = midi_io.midi_to_sequence_proto(midi_data)
+        
+        # load the wav data
+        wav_data = tf.gfile.Open(pair[0], 'rb').read()
+        samples = audio_io.wav_data_to_samples(wav_data, FLAGS.sample_rate)
+        norm_samples = librosa.util.normalize(samples, norm=np.inf)
 
-        splits = find_split_points(ns, samples, FLAGS.sample_rate,
+        splits = find_split_points(ns, norm_samples, FLAGS.sample_rate,
                                    FLAGS.min_length, FLAGS.max_length)
 
         velocities = [note.velocity for note in ns.notes]
@@ -268,15 +268,18 @@ def generate_train_set(train_file_pairs):
         velocity_min = np.min(velocities)
         new_velocity_tuple = music_pb2.VelocityRange(
             min=velocity_min, max=velocity_max)
-
+        not_last = True
         for start, end in zip(splits[:-1], splits[1:]):
-          #assert end - start >= FLAGS.min_length
           new_ns = sequences_lib.extract_subsequence(ns, start, end)
-          new_wav_data = audio_io.crop_wav_data(wav_data, FLAGS.sample_rate,
-                                                start, end - start)
-          samples = audio_io.wav_data_to_samples(new_wav_data, FLAGS.sample_rate)
-          if len(samples) < 5*16000:
+          samples_to_crop = int(start * FLAGS.sample_rate)
+          total_samples = int(end * FLAGS.sample_rate)
+          new_samples = samples[samples_to_crop:total_samples]
+          # check that cut length is valid, ignore if invalid and at the end
+          if (end-start)*16000 - len(new_samples) >= 1.0:
+            assert not_last
+            not_last = False
             continue
+          new_wav_data = audio_io.samples_to_wav_data(new_samples, FLAGS.sample_rate)
           example = tf.train.Example(features=tf.train.Features(feature={
               'id':
               tf.train.Feature(bytes_list=tf.train.BytesList(
@@ -324,13 +327,12 @@ def generate_test_set():
     test_file_pairs.append((wav_file, mid_file))
   test_output_name = os.path.join(FLAGS.output_dir,
                                   '{}_test.tfrecord'.format(DATASET))
-  total_files = 100#int(len(test_file_pairs) / 20) # lakh midi is about 20x MAPS dataset size
+  total_files = int(len(test_file_pairs) / 20) # lakh midi is about 20x MAPS dataset size
   print('found {} total pairs'.format(total_files))
-  buggy_wav = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.wav"
-  buggy_mid = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.mid"
-  train_file_pairs = [(buggy_wav, buggy_mid)]#test_file_pairs[:100]#[int(total_files/4):total_files]
-  test_file_pairs = []#[:int(total_files/4)] # 25% test, 75% train
-  print('check files different')
+  #buggy_wav = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.wav"
+  #buggy_mid = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.mid"
+  train_file_pairs = test_file_pairs[int(total_files/4):total_files]
+  test_file_pairs = test_file_pairs[:int(total_files/4)] # 25% test, 75% train
   train_wavs = [wav for wav, _ in train_file_pairs]
   test_wavs = [wav for wav, _ in test_file_pairs]
   for wav in test_wavs:
@@ -341,13 +343,13 @@ def generate_test_set():
       print("{} of {}: {}".format(count, len(test_file_pairs), pair[0]))
       count += 1
       try:
-        # load the wav data and resample it.
-        samples = audio_io.load_audio(pair[0], FLAGS.sample_rate)
-        wav_data = audio_io.samples_to_wav_data(samples, FLAGS.sample_rate)
-
         # load the midi data and convert to a notesequence
         midi_data = tf.gfile.Open(pair[1], 'rb').read()
         ns = midi_io.midi_to_sequence_proto(midi_data)
+
+        # load the wav data and resample it.
+        samples = audio_io.load_audio(pair[0], FLAGS.sample_rate)
+        wav_data = audio_io.samples_to_wav_data(samples, FLAGS.sample_rate)
 
         velocities = [note.velocity for note in ns.notes]
         velocity_max = np.max(velocities)
