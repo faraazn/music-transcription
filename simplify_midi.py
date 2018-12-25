@@ -4,7 +4,7 @@ import mido
 import random
 import time
 
-midi_root_dir = "/Users/faraaz/workspace/music-transcription/data/clean_midi/2Boys/"
+midi_root_dir = "/home/faraaz/workspace/music-transcription/data/clean_midi/"
 
 # remove any generated wav files
 """
@@ -78,10 +78,17 @@ program_map = { # map program to invalid id or collapse
 }
 
 start = time.time()
-midi_files = glob.iglob(os.path.join(midi_root_dir, '*.mid'))
+midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.mid'))
+print(len([f for f in midi_files]))
+assert False
 for idx, filename in enumerate(midi_files):
-  print("{} of {}: {}".format(idx, 9910, ))
+  if idx % 100 == 0:
+    print("{} of {}: {}".format(idx, 9909, filename))
   mid = mido.MidiFile(filename)
+  if mid.type == 0:
+    # dealing with type 0 midi is hard, easier to just delete
+    os.remove(filename)
+    continue
   collapsed_programs = set()  # ensure instrument diversity
   num_programs = 0  # limit number of tracks to 3
   mid_tracks = mid.tracks[:]  # iterate through copy, delete from original
@@ -93,10 +100,10 @@ for idx, filename in enumerate(midi_files):
           program = 129
           collapsed_program = 129
         else:  # not drums
-          program = msg.program + 1
+          program = msg.program + 1  # table is 1 indexed, mido is 0 indexed
           collapsed_program = program_map[program]
         if collapsed_program in collapsed_programs or \
-           collapsed_program == 0 or num_programs >= 3:
+          collapsed_program == 0 or num_programs >= 3:
           mid.tracks.remove(track)  # delete track
         else:
           collapsed_programs.add(collapsed_program)
