@@ -1,9 +1,10 @@
 import glob
 import os
-import pretty_midi
 import mido
+import random
+import time
 
-midi_root_dir = "/home/faraaz/workspace/music-transcription/data/clean_midi/"
+midi_root_dir = "/Users/faraaz/workspace/music-transcription/data/clean_midi/2Boys/"
 
 # remove any generated wav files
 """
@@ -41,6 +42,7 @@ for filename in midi_files:
 
 # remove invalid instrument types or instrument class repeats
 program_map = { # map program to invalid id or collapse
+  
   # pianos -> acoustic grand piano 
   1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1,
   # chromatic percussion -> xylophone
@@ -57,8 +59,8 @@ program_map = { # map program to invalid id or collapse
   49: 0, 50: 0, 51: 0, 52: 0, 53: 0, 54: 0, 55: 0, 56: 0,
   # brass -> trumpet
   57: 57, 58: 57, 59: 57, 60: 57, 61: 57, 62: 57, 63: 57, 64: 57,
-  # sax -> alto saxophone, other reeds -> clarinet
-  65: 66, 66: 66, 67: 66, 68: 66, 69: 72, 70: 72, 71: 72, 72: 72,
+  # reeds -> alto saxophone
+  65: 66, 66: 66, 67: 66, 68: 66, 69: 66, 70: 66, 71: 66, 72: 66,
   # pipe -> flute
   73: 74, 74: 74, 75: 74, 76: 74, 77: 74, 78: 74, 79: 74, 80: 74,
   # synth lead -> invalid
@@ -69,23 +71,30 @@ program_map = { # map program to invalid id or collapse
   97: 0, 98: 0, 99: 0, 100: 0, 101: 0, 102: 0, 103: 0, 104: 0,
   # ethnic -> shamisen
   105: 107, 106: 107, 107: 107, 108: 107, 109: 107, 110: 107, 111: 107, 112: 107,
-  # percussive -> synth drum
-  113: 119, 114: 119, 115: 119, 116: 119, 117: 119, 118: 119, 119: 119, 120: 119,
+  # percussive -> invalid
+  113: 0, 114: 0, 115: 0, 116: 0, 117: 0, 118: 0, 119: 0, 120: 0,
   # sound effects -> invalid
   121: 0, 122: 0, 123: 0, 124: 0, 125: 0, 126: 0, 127: 0, 128: 0
 }
 
-midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.mid'))
-for filename in midi_files:
-  filename = ''
-  pm = pretty_midi.PrettyMIDI(midi_file=filename)
+start = time.time()
+midi_files = glob.iglob(os.path.join(midi_root_dir, '*.mid'))
+for idx, filename in enumerate(midi_files):
+  print("{} of {}: {}".format(idx, 9910, ))
   mid = mido.MidiFile(filename)
-  collapsed_programs = set()
-  num_programs = 0
-  for track in mid.tracks[:]:
+  collapsed_programs = set()  # ensure instrument diversity
+  num_programs = 0  # limit number of tracks to 3
+  mid_tracks = mid.tracks[:]  # iterate through copy, delete from original
+  random.shuffle(mid_tracks)  # shuffle track pruning
+  for track in mid_tracks:
     for msg in track:
       if msg.type == 'program_change':
-        collapsed_program = program_map[program]
+        if msg.channel == 9:  # drums on channel 10
+          program = 129
+          collapsed_program = 129
+        else:  # not drums
+          program = msg.program + 1
+          collapsed_program = program_map[program]
         if collapsed_program in collapsed_programs or \
            collapsed_program == 0 or num_programs >= 3:
           mid.tracks.remove(track)  # delete track
@@ -94,7 +103,6 @@ for filename in midi_files:
           num_programs += 1
         break  # only expect one program_change message per track
   # save simplified midi file back
-  mid.save('/home/faraaz/workspace/music-transcription/cleaned.mid')
-  break
-# finally, limit number of instrument tracks
-# and/or limit max number of notes being played at once
+  mid.save(filename)
+
+print("{}s".format(time.time()-start))
