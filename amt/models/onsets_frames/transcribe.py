@@ -37,7 +37,7 @@ from amt.protobuf import music_pb2
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'acoustic_run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run/',
+    'acoustic_run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run2/',
     'Path to look for acoustic checkpoints. Should contain subdir `train`.')
 tf.app.flags.DEFINE_string(
     'acoustic_checkpoint_filename', None,
@@ -154,6 +154,9 @@ def transcribe_audio(transcription_session, filename, frame_threshold,
       min_duration_ms=0,
       onset_predictions=onset_predictions,
       velocity_values=velocity_values)
+
+  for note in sequence_prediction.notes:
+    note.pitch += constants.MIN_MIDI_PITCH
 
   return sequence_prediction
 

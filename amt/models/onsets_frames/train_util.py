@@ -150,7 +150,7 @@ def evaluate(train_dir,
         tf.contrib.training.SummaryAtEndHook(eval_dir)]
     tf.contrib.training.evaluate_repeatedly(
         train_dir,
-        eval_ops=metrics_to_updates.values(),
+        eval_ops=list(metrics_to_updates.values()),
         hooks=hooks,
         eval_interval_secs=60,
         timeout=None)
