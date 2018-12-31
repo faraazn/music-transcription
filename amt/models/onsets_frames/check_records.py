@@ -3,7 +3,7 @@ import numpy as np
 from amt.protobuf import music_pb2
 from amt.music import audio_io
 
-path = "/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/clean_midi_test-big.tfrecord"
+path = "/home/faraaz/workspace/magenta/magenta/models/onsets_frames_transcription/maps_config2_train.tfrecord"
 example = tf.train.Example()
 #print(len([record for record in tf.python_io.tf_record_iterator(path)]))
 i = 0
@@ -24,5 +24,4 @@ for record in tf.python_io.tf_record_iterator(path):
     print(song_name)
     print(type(y))
     print(type(wav_data))
-  break
 print("total: {}".format(i))
