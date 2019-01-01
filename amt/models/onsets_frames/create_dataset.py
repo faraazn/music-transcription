@@ -47,11 +47,11 @@ tf.app.flags.DEFINE_string('output_dir', '/home/faraaz/workspace/music-transcrip
 tf.app.flags.DEFINE_integer('min_length', 5, 'minimum segment length')
 tf.app.flags.DEFINE_integer('max_length', 20, 'maximum segment length')
 tf.app.flags.DEFINE_integer('sample_rate', 16000, 'desired sample rate')
-
+"""
 test_dirs = ['ENSTDkCl/MUS', 'ENSTDkAm/MUS']
 train_dirs = ['AkPnBcht/MUS', 'AkPnBsdf/MUS', 'AkPnCGdD/MUS', 'AkPnStgb/MUS',
               'SptkBGAm/MUS', 'SptkBGCl/MUS', 'StbgTGd2/MUS']
-
+"""
 def _find_inactive_ranges(note_sequence):
   """Returns ranges where no notes are active in the note_sequence."""
   start_sequence = sorted(
@@ -143,7 +143,6 @@ def find_split_points(note_sequence, samples, sample_rate, min_length,
   Returns:
       A list of split points in seconds from the beginning of the file.
   """
-  #return [209.71571879166663, 216.14815669166666]
   if not note_sequence.notes:
     return []
 
@@ -245,11 +244,9 @@ def generate_train_set(train_file_pairs):
   """
   train_output_name = os.path.join(FLAGS.output_dir,
                                    '{}_train.tfrecord'.format(DATASET))
-  count = 0
   with tf.python_io.TFRecordWriter(train_output_name) as writer:
-    for pair in train_file_pairs:
-      print("{} of {}: {}".format(count, len(train_file_pairs), pair[0]))
-      count += 1
+    for idx, pair in enumerate(train_file_pairs):
+      print("{} of {}: {}".format(idx, len(train_file_pairs), pair[0]))
       try:
         # load the midi data and convert to a notesequence
         midi_data = tf.gfile.Open(pair[1], 'rb').read()
@@ -268,18 +265,15 @@ def generate_train_set(train_file_pairs):
         velocity_min = np.min(velocities)
         new_velocity_tuple = music_pb2.VelocityRange(
             min=velocity_min, max=velocity_max)
-        not_last = True
+        
         for start, end in zip(splits[:-1], splits[1:]):
           new_ns = sequences_lib.extract_subsequence(ns, start, end)
           samples_to_crop = int(start * FLAGS.sample_rate)
           total_samples = int(end * FLAGS.sample_rate)
           new_samples = samples[samples_to_crop:total_samples]
-          # check that cut length is valid, ignore if invalid and at the end
-          if (end-start)*16000 - len(new_samples) >= 1.0:
-            assert not_last
-            not_last = False
-            continue
           new_wav_data = audio_io.samples_to_wav_data(new_samples, FLAGS.sample_rate)
+          if len(new_samples) < 5*16000 or len(new_samples) > 20*16000:
+            continue
           example = tf.train.Example(features=tf.train.Features(feature={
               'id':
               tf.train.Feature(bytes_list=tf.train.BytesList(
@@ -290,7 +284,7 @@ def generate_train_set(train_file_pairs):
                   value=[new_ns.SerializeToString()]
                   )),
               'audio':
-              tf.train.Feature(bytes_list=tf.train.BytesList(
+              tf.train.Feature(bytes_list=tf.train.BytesList(#float_list=tf.train.FloatList(
                   value=[new_wav_data]
                   )),
               'velocity_range':
@@ -327,21 +321,19 @@ def generate_test_set():
     test_file_pairs.append((wav_file, mid_file))
   test_output_name = os.path.join(FLAGS.output_dir,
                                   '{}_test.tfrecord'.format(DATASET))
-  total_files = int(len(test_file_pairs) / 20) # lakh midi is about 20x MAPS dataset size
+  total_files = int(len(test_file_pairs) / 100) # simple lakh midi is about 14x MAPS dataset size
   print('found {} total pairs'.format(total_files))
   #buggy_wav = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.wav"
   #buggy_mid = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.mid"
-  train_file_pairs = test_file_pairs[int(total_files/4):total_files]
-  test_file_pairs = test_file_pairs[:int(total_files/4)] # 25% test, 75% train
+  train_file_pairs = test_file_pairs[int(total_files/5):total_files]
+  test_file_pairs = test_file_pairs[:int(total_files/5)] # 20% test, 80% train
   train_wavs = [wav for wav, _ in train_file_pairs]
   test_wavs = [wav for wav, _ in test_file_pairs]
   for wav in test_wavs:
     assert wav not in train_wavs
-  count = 0
   with tf.python_io.TFRecordWriter(test_output_name) as writer:
-    for pair in test_file_pairs:
-      print("{} of {}: {}".format(count, len(test_file_pairs), pair[0]))
-      count += 1
+    for idx, pair in enumerate(test_file_pairs):
+      print("{} of {}: {}".format(idx, len(test_file_pairs), pair[0]))
       try:
         # load the midi data and convert to a notesequence
         midi_data = tf.gfile.Open(pair[1], 'rb').read()
@@ -356,7 +348,6 @@ def generate_test_set():
         velocity_min = np.min(velocities)
         new_velocity_tuple = music_pb2.VelocityRange(
             min=velocity_min, max=velocity_max)
-
         example = tf.train.Example(features=tf.train.Features(feature={
             'id':
             tf.train.Feature(bytes_list=tf.train.BytesList(
@@ -367,7 +358,7 @@ def generate_test_set():
                 value=[ns.SerializeToString()]
                 )),
             'audio':
-            tf.train.Feature(bytes_list=tf.train.BytesList(
+            tf.train.Feature(bytes_list=tf.train.BytesList(#float_list=tf.train.FloatList(
                 value=[wav_data]
                 )),
             'velocity_range':
@@ -389,7 +380,6 @@ def main(unused_argv):
 
 
 def console_entry_point():
-  
   tf.app.run(main)
 
 

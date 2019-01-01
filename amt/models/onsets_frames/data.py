@@ -38,6 +38,8 @@ import six
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+import time
+
 import amt.music as mm
 from amt.music import audio_io
 from amt.music import sequences_lib
@@ -65,7 +67,7 @@ def hparams_frames_per_second(hparams):
 def _wav_to_cqt(wav_audio, hparams):
   """Transforms the contents of a wav file into a series of CQT frames."""
   y = audio_io.wav_data_to_samples(wav_audio, hparams.sample_rate)
-
+  
   cqt = np.abs(
       librosa.core.cqt(
           y,
@@ -79,13 +81,16 @@ def _wav_to_cqt(wav_audio, hparams):
 
   # Transpose so that the data is in [frame, bins] format.
   cqt = cqt.T
+
   return cqt
 
 
 def _wav_to_mel(wav_audio, hparams):
   """Transforms the contents of a wav file into a series of mel spec frames."""
+  #start_y = time.time()
   y = audio_io.wav_data_to_samples(wav_audio, hparams.sample_rate)
 
+  #start_cqt = time.time()
   mel = librosa.feature.melspectrogram(
       y,
       hparams.sample_rate,
@@ -96,12 +101,29 @@ def _wav_to_mel(wav_audio, hparams):
 
   # Transpose so that the data is in [frame, bins] format.
   mel = mel.T
+  #print("y: {}s, mel: {}s".format((start_cqt-start_y), (time.time()-start_cqt)))
+  return mel
+
+
+def _samples_to_mel(samples, hparams):
+  """Transforms audio samples into a series of mel spec frames."""
+  mel = librosa.feature.melspectrogram(
+      samples,
+      hparams.sample_rate,
+      hop_length=hparams.spec_hop_length,
+      fmin=hparams.spec_fmin,
+      n_mels=hparams.spec_n_bins,
+      htk=hparams.spec_mel_htk).astype(np.float32)
+
+  # Transpose so that the data is in [frame, bins] format.
+  mel = mel.T
+  
   return mel
 
 
 def _wav_to_framed_samples(wav_audio, hparams):
   """Transforms the contents of a wav file into a series of framed samples."""
-  y = audio_io.wav_data_to_samples(wav_audio, hparams.sample_rate)
+  #y = audio_io.wav_data_to_samples(wav_audio, hparams.sample_rate)
 
   hl = hparams.spec_hop_length
   n_frames = int(np.ceil(y.shape[0] / hl))
@@ -145,6 +167,34 @@ def wav_to_spec_op(wav_audio, hparams):
   return spec
 
 
+def samples_to_spec(samples, hparams):
+  """Transforms audio samples into a series of spectrograms."""
+  if hparams.spec_type == 'raw':
+    spec = _wav_to_framed_samples(wav_audio, hparams)
+  else:
+    if hparams.spec_type == 'cqt':
+      spec = _wav_to_cqt(wav_audio, hparams)
+    elif hparams.spec_type == 'mel':
+      spec = _samples_to_mel(samples, hparams)
+    else:
+      raise ValueError('Invalid spec_type: {}'.format(hparams.spec_type))
+
+    if hparams.spec_log_amplitude:
+      spec = librosa.power_to_db(spec)
+
+  return spec
+
+
+def samples_to_spec_op(samples, hparams):
+  spec = tf.py_func(
+      functools.partial(samples_to_spec, hparams=hparams),
+      [samples],
+      tf.float32,
+      name='samples_to_spec')
+  spec.set_shape([None, hparams_frame_size(hparams)])
+  return spec
+
+
 def wav_to_num_frames(wav_audio, frames_per_second):
   """Transforms a wav-encoded audio string into number of frames."""
   w = wave.open(six.BytesIO(wav_audio))
@@ -158,6 +208,22 @@ def wav_to_num_frames_op(wav_audio, frames_per_second):
       [wav_audio],
       tf.int32,
       name='wav_to_num_frames_op')
+  res.set_shape(())
+  return res
+
+
+def samples_to_num_frames(samples, hop_length):
+  """Transforms audio samples into number of frames."""
+  return np.int32(len(samples) / hop_length)
+
+
+def samples_to_num_frames_op(samples, hop_length):
+  """Transforms audio samples into number of frames."""
+  res = tf.py_func(
+      functools.partial(samples_to_num_frames, hop_length=hop_length),
+      [samples],
+      tf.int32,
+      name='samples_to_num_frames_op')
   res.set_shape(())
   return res
 
@@ -200,6 +266,30 @@ def transform_wav_data_op(wav_data_tensor, hparams, is_training,
       [wav_data_tensor],
       tf.string,
       name='transform_wav_data_op')
+
+
+def transform_samples_op(samples_tensor, hparams, is_training,
+                          jitter_amount_sec):
+  """Transforms samples."""
+  def transform_samples(samples):
+    """Transforms samples."""
+    # Only do audio transformations during training.
+    samples = np.frombuffer(samples, dtype='float32')
+    if is_training:
+      samples = audio_io.jitter_samples(samples, hparams.sample_rate,
+                                          jitter_amount_sec)
+
+    # Normalize.
+    if hparams.normalize_audio:
+      samples = audio_io.normalize_samples(samples, hparams.sample_rate)
+
+    return samples
+
+  return tf.py_func(
+      transform_samples,
+      [samples_tensor],
+      tf.double,
+      name='transform_samples_op')
 
 
 def sequence_to_pianoroll_op(sequence_tensor, velocity_range_tensor, hparams):
@@ -311,7 +401,6 @@ def _preprocess_data(sequence, audio, velocity_range, hparams, is_training):
   Raises:
     ValueError: If hparams is contains an invalid spec_type.
   """
-
   wav_jitter_amount_ms = label_jitter_amount_ms = 0
   # if there is combined jitter, we must generate it once here
   if hparams.jitter_amount_ms > 0:
@@ -485,6 +574,7 @@ def provide_batch(batch_size,
           'id': tf.FixedLenFeature(shape=(), dtype=tf.string),
           'sequence': tf.FixedLenFeature(shape=(), dtype=tf.string),
           'audio': tf.FixedLenFeature(shape=(), dtype=tf.string),
+          #'audio': tf.FixedLenSequenceFeature(shape=(), dtype=tf.float32, allow_missing=True),
           'velocity_range': tf.FixedLenFeature(shape=(), dtype=tf.string),
       }
       return tf.parse_single_example(example_proto, features)

@@ -165,6 +165,23 @@ def jitter_wav_data(wav_data, sample_rate, jitter_seconds):
   return samples_to_wav_data(new_y, sample_rate)
 
 
+def jitter_samples(samples, sample_rate, jitter_seconds):
+  """Add silence to the beginning of the file.
+
+  Args:
+     wav_data: audio samples to prepend with silence.
+     sample_rate: The sample rate at which the samples were sampled.
+     jitter_seconds: Seconds of silence to prepend.
+
+  Returns:
+     A version of the samples with jitter_seconds silence prepended.
+  """
+
+  silence_samples = jitter_seconds * sample_rate
+  new_y = np.concatenate((np.zeros(np.int(silence_samples)), samples))
+  return new_y
+
+
 def load_audio(audio_filename, sample_rate):
   """Loads an audio file.
 
@@ -233,3 +250,18 @@ def normalize_wav_data(wav_data, sample_rate, norm=np.inf):
   y = wav_data_to_samples(wav_data, sample_rate=sample_rate)
   new_y = librosa.util.normalize(y, norm=norm)
   return samples_to_wav_data(new_y, sample_rate)
+
+
+def normalize_samples(samples, sample_rate, norm=np.inf):
+  """Normalizes audio samples.
+
+  Args:
+     samples: audio samples to normalize.
+     sample_rate: The sample rate at which to read the samples.
+     norm: See the norm argument of librosa.util.normalize.
+
+  Returns:
+     A version of the audio samples that has been normalized.
+  """
+
+  return librosa.util.normalize(y, norm=norm)
