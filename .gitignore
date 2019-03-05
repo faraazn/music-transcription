@@ -1,5 +1,7 @@
 .DS_Store
-data/
+.wav
+.midi
+.mid
 .ipynb_checkpoints/
 __pycache__/
 bazel-*
