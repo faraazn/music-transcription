@@ -79,12 +79,12 @@ class NoteIsoSequence(keras.utils.Sequence):
 #         pm_samples = scipy.io.wavfile.read(wav_path)
         
         if self.mode == 'train':
-            num_instruments = len(self.pm.instruments)
+            num_instruments = 1 #len(self.pm.instruments)
             instr_indices = np.random.randint(num_instruments, size=self.batch_size)
             note_indices = []
             for instr_id in instr_indices:
                 instrument = self.pm.instruments[instr_id]
-                num_notes = len(instrument.notes)
+                num_notes = 1 #len(instrument.notes)
                 note_indices.append(np.random.randint(num_notes))
             X, y = self.process_batch(self.pm, self.pm_samples, instr_indices, note_indices)
         else:
@@ -162,10 +162,18 @@ class NoteIsoSequence(keras.utils.Sequence):
 def get_model():
     # ENCODE
     model = keras.models.Sequential()
-    model.add(keras.layers.Conv2D(30, (3, 3), padding="same", input_shape=(514, 173, 2)))
+    model.add(keras.layers.Conv2D(10, (3, 3), padding="same", input_shape=(514, 173, 2)))
     model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.BatchNormalization(axis=2))
-    model.add(keras.layers.MaxPooling2D(pool_size=(8, 4)))
+    model.add(keras.layers.MaxPooling2D(pool_size=(4, 2)))
+    
+    model.add(keras.layers.Conv2D(20, (3, 3), padding="same"))
+    model.add(keras.layers.Activation("relu"))
+    model.add(keras.layers.BatchNormalization(axis=2))
+    model.add(keras.layers.Conv2D(20, (3, 3), padding="same"))
+    model.add(keras.layers.Activation("relu"))
+    model.add(keras.layers.BatchNormalization(axis=2))
+    model.add(keras.layers.MaxPooling2D(pool_size=(4, 2)))
 
     model.add(keras.layers.Conv2D(60, (3, 3), padding="same"))
     model.add(keras.layers.Activation("relu"))
@@ -195,7 +203,7 @@ def get_model():
     # DECODE
     model.add(keras.layers.Dense(400))
     model.add(keras.layers.Reshape((4, 1, 100)))
-    model.add(keras.layers.UpSampling2D(size=(4, 5)))
+    model.add(keras.layers.UpSampling2D(size=(2, 1)))
     model.add(keras.layers.Conv2D(100, (3, 3), padding="same"))
     model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.BatchNormalization(axis=2))
@@ -211,9 +219,17 @@ def get_model():
     model.add(keras.layers.Activation("relu"))
     model.add(keras.layers.BatchNormalization(axis=2))
     
-    model.add(keras.layers.UpSampling2D(size=(8, 7)))
+    model.add(keras.layers.UpSampling2D(size=(4, 5)))
+    model.add(keras.layers.Conv2D(20, (3, 3), padding="same"))
+    model.add(keras.layers.Activation("relu"))
+    model.add(keras.layers.BatchNormalization(axis=2))
+    model.add(keras.layers.Conv2D(20, (3, 3), padding="same"))
+    model.add(keras.layers.Activation("relu"))
+    model.add(keras.layers.BatchNormalization(axis=2))
+    
+    model.add(keras.layers.UpSampling2D(size=(4, 7)))
     model.add(keras.layers.Conv2D(2, (3, 3), padding="same"))
-    model.add(keras.layers.Activation("relu"))
+    model.add(keras.layers.Activation("tanh"))
     
 
     model.compile(optimizer="rmsprop", loss='categorical_crossentropy')

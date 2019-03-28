@@ -17,7 +17,8 @@ sample_duration = 44100
 n_fft = 1024
 
 train_generator = NoteIsoSequence([midi_file], sample_duration=sample_duration, 
-                                  fs=sample_rate, n_fft=n_fft, mode='train')
+                                  fs=sample_rate, n_fft=n_fft, mode='train',
+                                  batch_size=32)
 
 model = get_model()
 model.summary()
@@ -25,7 +26,7 @@ model.summary()
 model.fit_generator(generator=train_generator,
                     validation_data=train_generator,
                     use_multiprocessing=True,
-                    workers=6, steps_per_epoch=100, epochs=10,
+                    workers=6, steps_per_epoch=500, epochs=1,
                     validation_steps=1)
 
-model.save("draft-3.h")
+model.save("draft-3-c.h")
