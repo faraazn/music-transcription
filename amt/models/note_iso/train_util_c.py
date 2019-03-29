@@ -49,7 +49,7 @@ class NoteIsoSequence(keras.utils.Sequence):
     """Generate note iso data for training/validation."""
     def __init__(self, song_paths, sample_duration=44100, n_fft=1024, batch_size=64, shuffle=False, 
                  fs=44100, debug=False, sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2",
-                 instr_indices=None, note_indices=None, mode='train'):
+                 instr_indices=None, note_indices=None, mode='train', epsilon=0.00001):
         self.song_paths = song_paths
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -61,6 +61,7 @@ class NoteIsoSequence(keras.utils.Sequence):
         self.instr_indices = instr_indices
         self.note_indices = note_indices
         self.mode = mode
+        self.epsilon = epsilon
         
         self.pm = pretty_midi.PrettyMIDI(song_paths[0])
         self.pm_samples = self.pm.fluidsynth(fs=fs, sf2_path=sf2_path)
@@ -118,12 +119,20 @@ class NoteIsoSequence(keras.utils.Sequence):
                                         'constant', constant_values=(0,0))
 
             noisy_stft = librosa.core.stft(y=padded_samples, n_fft=self.n_fft)
-            # convert complex numbers to magnitude and phase
-            final_noisy = np.stack((np.abs(noisy_stft), np.angle(noisy_stft)), axis=2)
+            # convert complex numbers to magnitude and phase, then scale
+            magnitude = np.abs(noisy_stft)
+            phase = np.angle(noisy_stft)
+            log_magnitude = np.log(magnitude)
+            magnitude_scale_factor = max(np.abs(np.amin(log_magnitude)), np.amax(log_magnitude)) + self.epsilon
+            scaled_magnitude = log_magnitude / magnitude_scale_factor
+            scaled_phase = phase / (np.pi + self.epsilon)
+            final_noisy = np.stack((scaled_magnitude, scaled_phase), axis=2)
+            
             annotation = np.zeros((1, final_noisy.shape[1], final_noisy.shape[2]))
-            annotation[0,0,0] = note.pitch
-            annotation[0,0,1] = note.end - note.start
+            annotation[0,0,0] = 0 #note.pitch
+            annotation[0,0,1] = 0 #note.end - note.start
             final_input = np.append(final_noisy, annotation, axis=0)
+            
             
             
             pm_iso = pretty_midi.PrettyMIDI()
@@ -140,14 +149,25 @@ class NoteIsoSequence(keras.utils.Sequence):
                                         'constant', constant_values=(0,0))
             
             iso_stft = librosa.core.stft(y=pm_iso_samples, n_fft=self.n_fft)
-            # convert complex numbers to magnitude and phase
-            final_iso = np.stack((np.abs(iso_stft), np.angle(iso_stft)), axis=2)
+            # convert complex numbers to magnitude and phase, then scale
+            magnitude = np.abs(iso_stft)
+            phase = np.angle(iso_stft)
+            log_magnitude = np.log(magnitude)
+            magnitude_scale_factor = max(np.abs(np.amin(log_magnitude)), np.amax(log_magnitude)) + self.epsilon
+            scaled_magnitude = log_magnitude / magnitude_scale_factor
+            scaled_phase = phase / (np.pi + self.epsilon)
+            
+            final_iso = np.stack((scaled_magnitude, scaled_phase), axis=2)
             # sample_rate = 44100 sample_duration = 44100 n_fft = 1024 -> (513, 173, 2)
             # trim axis 1 and pad axis 2 to get 512 (2^9), 175 (5*5*7)
             final_iso = final_iso[:-1, :, :]  # shape (512, 173, 2)
-            final_iso_pad = np.zeros((512, 2, 2))
+            final_iso_pad = np.zeros((512, 2, 2))  # TODO: make this a very small number?
             final_iso = np.concatenate((final_iso, final_iso_pad), axis=1)  # shape (512, 175, 2)
 
+            assert np.all(final_iso < 1) and np.all(final_iso > -1)
+            assert np.all(final_input < 1) and np.all(final_input > -1)
+            assert not np.any(np.isnan(final_iso)) and not np.any(np.isnan(final_input))
+            
             X.append(final_input)
             y.append(final_iso)
             if self.debug:
@@ -231,7 +251,7 @@ def get_model():
     model.add(keras.layers.Conv2D(2, (3, 3), padding="same"))
     model.add(keras.layers.Activation("tanh"))
     
-
-    model.compile(optimizer="rmsprop", loss='categorical_crossentropy')
+    adam = keras.optimizers.Adam(lr=0.001)
+    model.compile(optimizer=adam, loss='mean_squared_error')
     
     return model

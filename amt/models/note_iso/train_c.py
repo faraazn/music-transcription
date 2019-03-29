@@ -26,7 +26,7 @@ model.summary()
 model.fit_generator(generator=train_generator,
                     validation_data=train_generator,
                     use_multiprocessing=True,
-                    workers=6, steps_per_epoch=500, epochs=1,
+                    workers=6, steps_per_epoch=1000, epochs=1,
                     validation_steps=1)
 
 model.save("draft-3-c.h")
