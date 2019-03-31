@@ -85,7 +85,7 @@ class NoteIsoSequence(keras.utils.Sequence):
             note_indices = []
             for instr_id in instr_indices:
                 instrument = self.pm.instruments[instr_id]
-                num_notes = len(instrument.notes)
+                num_notes = 1 #len(instrument.notes)
                 note_indices.append(np.random.randint(num_notes))
             X, y = self.process_batch(self.pm, self.pm_samples, instr_indices, note_indices)
         else:
