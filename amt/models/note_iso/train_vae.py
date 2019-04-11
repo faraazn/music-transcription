@@ -22,21 +22,23 @@ workers = 1
 use_multiprocessing = False
 validation_steps = 1
 
-song_indices = [0]*64*10
-instr_indices = [0]*64*10
-note_indices = [0]*64*10
+song_indices = [] #[0]*64*10
+instr_indices = [] #[0]*64*10
+note_indices = [] #[0]*64*10
     
 if __name__ == "__main__":
     train_generator = NoteIsoSequence([midi_file], sample_duration=sample_duration, 
                                       fs=sample_rate, n_fft=n_fft, batch_size=batch_size,
                                       epsilon=epsilon, song_indices=song_indices, 
                                       instr_indices=instr_indices, note_indices=note_indices)
-    vae, my_vae_loss = get_vae()
+    encoder, decoder, vae, my_vae_loss = get_vae()
     vae.summary()
     vae.fit_generator(generator=train_generator, validation_data=train_generator, 
                       use_multiprocessing=use_multiprocessing, workers=workers, epochs=epochs, 
                       validation_steps=validation_steps)
 
     print("saving models...")
+    encoder.save("vae/encoder-0.h")
+    decoder.save("vae/decoder-0.h")
     vae.save("vae/vae-0.h")
     print("saved vae.")

@@ -32,7 +32,7 @@ if __name__ == "__main__":
                                       epsilon=epsilon, song_indices=song_indices, 
                                       instr_indices=instr_indices, note_indices=note_indices)
 
-    autoencoder, discriminator, combined = get_gan()
+    encoder, decoder, autoencoder, discriminator, combined = get_gan()
     combined.summary()
 
     # generator gives X, y each with shape [batch_size, 1024, 128, 2]
@@ -65,6 +65,8 @@ if __name__ == "__main__":
         start = time.time()
 
     print("saving models...")
+    encoder.save("gan/encoder-0.h")
+    decoder.save("gan/decoder-0.h")
     autoencoder.save("gan/ae-0.h")
     discriminator.save("gan/disc-0.h")
     combined.save("gan/comb-0.h")

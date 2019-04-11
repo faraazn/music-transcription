@@ -69,7 +69,7 @@ class NoteIsoSequence(keras.utils.Sequence):
                  fs=32000, debug=False, sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2",
                  instr_indices=[], note_indices=[], song_indices=[], epsilon=0.00001,
                  notesounds_path="/home/faraaz/workspace/music-transcription/data/note_sounds/"):
-        self.song_paths = song_paths
+        self.song_paths = song_paths  # wav files
         self.batch_size = batch_size
         self.fs = fs
         self.sf2_path = sf2_path
@@ -84,38 +84,65 @@ class NoteIsoSequence(keras.utils.Sequence):
         self.instr_indices = instr_indices
         self.note_indices = note_indices
         
+        self.notesounds = {}
+        for filename in glob.iglob(self.notesounds_path + "*.wav"):
+            program = filename.split(".")[0]
+            program = program.split("/")[-1]
+            _, notesound_samples = scipy.io.wavfile.read(filename)
+            self.notesounds[int(program)] = notesound_samples
+        
         if not song_indices or not instr_indices or not note_indices:
             num_songs = len(song_paths)
-            s_indices = np.random.choice(range(num_songs), size=num_songs, replace=False)
+#             s_indices = np.random.choice(range(num_songs), size=num_songs, replace=False)
+            s_indices = range(num_songs)
             for s_index in s_indices:
                 song_path = song_paths[s_index]
-                pm = pretty_midi.PrettyMIDI(song_path)
+                mid_path = song_path[:-4] + ".mid"
+                pm = pretty_midi.PrettyMIDI(mid_path)
                 num_instr = len(pm.instruments)
-                i_indices = np.random.choice(range(num_instr), size=num_instr, replace=False)
+#                 print("num_instr {}".format(num_instr))
+#                 i_indices = np.random.choice(range(num_instr), size=num_instr, replace=False)
+                i_indices = range(num_instr)
                 for i_index in i_indices:
                     instrument = pm.instruments[i_index]
+#                     print("instrument {}".format(instrument))
+                    assert instrument.is_drum == False
                     num_notes = len(instrument.notes)
-                    n_indices = np.random.choice(range(num_notes), size=num_notes, replace=False)
-                    for n_index in n_indices:
+#                     print("num_notes {}".format(num_notes))
+#                     n_indices = np.random.choice(range(num_notes), size=num_notes, replace=False)
+                    n_indices = range(num_notes)
+#                     print("np.amax(n_indices) {}".format(np.amax(n_indices)))
+                    for ii in range(len(n_indices)):
+                        n_index = n_indices[ii]
                         self.song_indices.append(s_index)
                         self.instr_indices.append(i_index)
                         self.note_indices.append(n_index)
+#                         if ii == 32:
+#                             break
+#                     print("len {}".format(len(self.note_indices)))
+#                     break
                 # to ensure 1 song per batch, round to nearest batch size
                 data_size = len(self.note_indices)
                 rounded_size = int(data_size / self.batch_size) * self.batch_size
                 self.song_indices = self.song_indices[:rounded_size]
                 self.instr_indices = self.instr_indices[:rounded_size]
                 self.note_indices = self.note_indices[:rounded_size]
+#                 print("self.song_indices {}".format(self.song_indices[-8:]))
+#                 print("self.instr_indices {}".format(self.instr_indices[-8:]))
+#                 print("self.note_indices {}".format(self.note_indices[-8:]))
+#                 print("data_size {}".format(data_size))
+#                 print("rounded_size {}".format(rounded_size))
         
         self.song_index = self.song_indices[0]
         song_path = self.song_paths[self.song_index]
-        self.pm = pretty_midi.PrettyMIDI(song_path)
-        wav_path = song_path[:-4] + ".wav"
-        _, self.pm_samples = scipy.io.wavfile.read(wav_path)
+        print(song_path)
+        mid_path = song_path[:-4] + ".mid"
+        self.pm = pretty_midi.PrettyMIDI(mid_path)
+        _, self.pm_samples = scipy.io.wavfile.read(song_path)
 
     def __len__(self):
         'Denotes the number of batches per epoch'
-        return int(np.floor(len(self.note_indices) / self.batch_size))
+        return len(self.note_indices) // self.batch_size
 
     def __getitem__(self, index):
         'Generate one batch of data'
@@ -123,15 +150,17 @@ class NoteIsoSequence(keras.utils.Sequence):
         instr_indices = self.instr_indices[self.batch_size*index:self.batch_size*(index+1)]
         note_indices = self.note_indices[self.batch_size*index:self.batch_size*(index+1)]
         song_index = song_indices[0]
+#         print("index {}, song_index {}, {}".format(index, song_index, self.pm.get_end_time()))
         assert song_indices.count(song_index) == self.batch_size  # should all be the same
         
         if song_index != self.song_index:
             # changed song, need to reload wav and midi
+            assert False
             self.song_index = song_index
             song_path = self.song_paths[self.song_index]
-            self.pm = pretty_midi.PrettyMIDI(song_path)
-            wav_path = song_path[:-4] + ".wav"
-            _, self.pm_samples = scipy.io.wavfile.read(wav_path)
+            mid_path = song_path[:-4] + ".mid"
+            self.pm = pretty_midi.PrettyMIDI(mid_path)
+            _, self.pm_samples = scipy.io.wavfile.read(song_path)
             
         
         X = []
@@ -139,9 +168,24 @@ class NoteIsoSequence(keras.utils.Sequence):
         
         for i in range(self.batch_size):
             instr_id = instr_indices[i]
-            instrument = self.pm.instruments[instr_id]
+            
+#             instrument = self.pm.instruments[instr_id]
+            try:
+                instrument = self.pm.instruments[instr_id]
+            except IndexError:
+                print("instrumentt, instr id {}, num instr {}, instr indices {}, note_indices {}".format(
+                      instr_id, len(self.pm.instruments), instr_indices, note_indices))
+                print(self.pm.get_end_time())
+                assert False
             note_id = note_indices[i]
-            note = instrument.notes[note_id]
+            try:
+                note = instrument.notes[note_id]
+            except IndexError:
+                print("note")
+                print(note_id)
+                print(instrument)
+                print(len(instrument.notes))
+                assert False
             sample_start = int(note.start * self.fs)
 
             padded_samples = self.pm_samples[:]
@@ -155,10 +199,12 @@ class NoteIsoSequence(keras.utils.Sequence):
             # convert complex numbers to magnitude and phase, then scale
             magnitude = np.abs(noisy_stft)
             phase = np.angle(noisy_stft) 
-            log_magnitude = np.log(magnitude)
-            magnitude_scale_factor = max(np.abs(np.amin(log_magnitude)), np.amax(log_magnitude)) + self.epsilon
+            log_magnitude = np.log(magnitude + self.epsilon)
+            largest_magnitude = max(np.abs(np.amin(log_magnitude)), np.amax(log_magnitude))
+            magnitude_scale_factor = largest_magnitude * 1.25  # will scale range to [-0.8, 0.8]
+            assert magnitude_scale_factor > 0
             scaled_magnitude = log_magnitude / magnitude_scale_factor
-            scaled_phase = phase / (np.pi + self.epsilon)
+            scaled_phase = phase / (np.pi * 1.25)  # will scale range to [-0.8, 0.8]
             final_noisy = np.stack((scaled_magnitude, scaled_phase), axis=2)  # shape [1025, 126, 2]
             final_noisy = final_noisy[:-1,:,:]  # shape [1024, 126, 2]
             
@@ -168,8 +214,8 @@ class NoteIsoSequence(keras.utils.Sequence):
             final_input = np.append(final_noisy, annotation, axis=1)  # shape [1024, 128, 2]
             
             
-            iso_file = self.notesounds_path + "{}.wav".format(instrument.program)
-            _, pm_iso_samples = scipy.io.wavfile.read(iso_file)
+#             iso_file = self.notesounds_path + "{}.wav".format(instrument.program)
+            pm_iso_samples = self.notesounds[instrument.program]  #scipy.io.wavfile.read(iso_file)
             if len(pm_iso_samples) > self.sample_duration:
                 pm_iso_samples = pm_iso_samples[:self.sample_duration]
             if len(pm_iso_samples) < self.sample_duration:
@@ -180,19 +226,21 @@ class NoteIsoSequence(keras.utils.Sequence):
             # convert complex numbers to magnitude and phase, then scale
             magnitude = np.abs(iso_stft)
             phase = np.angle(iso_stft)
-            log_magnitude = np.log(magnitude)
-            magnitude_scale_factor = max(np.abs(np.amin(log_magnitude)), np.amax(log_magnitude)) + self.epsilon
+            log_magnitude = np.log(magnitude + self.epsilon)
+            largest_magnitude = max(np.abs(np.amin(log_magnitude)), np.amax(log_magnitude))
+            magnitude_scale_factor = largest_magnitude * 1.25  # will scale range to [-0.8, 0.8]
+            assert magnitude_scale_factor > 0
             scaled_magnitude = log_magnitude / magnitude_scale_factor
-            scaled_phase = phase / (np.pi + self.epsilon)
+            scaled_phase = phase / (np.pi * 1.25)  # will scale range to [-0.8, 0.8]
             
             final_iso = np.stack((scaled_magnitude, scaled_phase), axis=2)  # shape [1025, 126, 2]
             final_iso = final_iso[:-1, :, :]  # shape (1024, 126, 2)
             final_iso_pad = np.zeros((final_iso.shape[0], 2, final_iso.shape[2]))  # TODO: 0 -> small number?
             final_iso = np.concatenate((final_iso, final_iso_pad), axis=1)  # shape (1024, 128, 2)
 
+            assert not np.any(np.isnan(final_iso)) and not np.any(np.isnan(final_input))
             assert np.all(final_iso < 1) and np.all(final_iso > -1)
             assert np.all(final_input <= 1) and np.all(final_input > -1)
-            assert not np.any(np.isnan(final_iso)) and not np.any(np.isnan(final_input))
             
             X.append(final_input)
             y.append(final_iso)
@@ -260,9 +308,9 @@ def get_encoder():
     # ENCODED VECTOR
     model = Flatten()(model)
     model = Dense(256)(model)
-    latent = Activation("sigmoid")(model)
+#     model = Activation("sigmoid")(model)
     
-    return keras.models.Model(spectrogram, latent)
+    return keras.models.Model(spectrogram, model, name="encoder")
 
 
 def get_vae_encoder():
@@ -385,7 +433,7 @@ def get_decoder():
 #     model = BatchNormalization(axis=2)(model)
     spectrogram = Activation("tanh")(model)
     
-    return keras.models.Model(latent, spectrogram)
+    return keras.models.Model(latent, spectrogram, name="decoder")
 
 
 def get_discriminator():
@@ -441,18 +489,20 @@ def get_discriminator():
     return keras.models.Model(spectrogram, prediction)
 
 
-def get_autoencoder():
-    encoder = get_encoder()
-    decoder = get_decoder()
+def get_autoencoder(encoder=None, decoder=None):
+    if not encoder:
+        assert not decoder
+        encoder = get_encoder()
+        decoder = get_decoder()
     
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 128, 2))
+    noisy_spectrogram = keras.layers.Input(shape=(1024, 128, 2), name="spectrogram")
     latent_instr = encoder(noisy_spectrogram)
     reconstructed_instr = decoder(latent_instr)
     autoencoder = keras.models.Model(noisy_spectrogram, reconstructed_instr)
     
-    adam = keras.optimizers.Adam(lr=0.01)
+    adam = keras.optimizers.Adam(lr=0.001)
     autoencoder.compile(optimizer=adam, loss='mean_squared_error')
-    return autoencoder
+    return encoder, decoder, autoencoder
 
 def get_vae():
     encoder = get_vae_encoder()
@@ -468,7 +518,7 @@ def get_vae():
         return vae_loss
     
     vae = keras.models.Model(noisy_spectrogram, reconstructed_instr)
-    adam = keras.optimizers.Adam(lr=0.01)
+    adam = keras.optimizers.Adam(lr=0.001)
     vae.compile(optimizer=adam, loss=my_vae_loss)
     return vae, my_vae_loss
     
