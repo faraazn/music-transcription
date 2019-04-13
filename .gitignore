@@ -1,9 +1,12 @@
 .DS_Store
-.wav
-.midi
-.mid
+*.wav
+*.midi
+*.mid
 .ipynb_checkpoints/
 __pycache__/
 bazel-*
 *.tfrecord
 run/
+*.h
+clean_midi/
+MAPS/

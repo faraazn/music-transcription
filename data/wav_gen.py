@@ -9,7 +9,7 @@ midi_files = [midi_file for midi_file in midi_files]
 note_sounds_root_dir = "/home/faraaz/workspace/music-transcription/data/note_sounds/"
 sf2_path = "/usr/share/sounds/sf2/FluidR3_GM.sf2"
 sample_rate = 32000
-num_songs = 100
+num_songs = 500
 print_rate = 10
 
 # synthesize midi files
@@ -23,7 +23,7 @@ for midi_file in midi_files:
   wav_file = midi_file[:-4] + ".wav"
   scipy.io.wavfile.write(wav_file, sample_rate, pm_samples)
   count += 1
-
+"""
 if not os.path.exists(note_sounds_root_dir):
   os.mkdir(note_sounds_root_dir)
 
@@ -45,7 +45,8 @@ for program in range(num_programs):
   wav_file = note_sounds_root_dir + "{}.wav".format(program)
   scipy.io.wavfile.write(wav_file, sample_rate, pm_samples)
   count += 1
-
+"""
+"""
 # synthesize all types of drum hits
 count = 0
 for drum in range(35, 82):
@@ -60,3 +61,4 @@ for drum in range(35, 82):
   wav_file = note_sounds_root_dir + "{}{}.wav".format("d", drum)
   scipy.io.wavfile.write(wav_file, sample_rate, pm_samples)
   count += 1
+"""

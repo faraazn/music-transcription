@@ -47,11 +47,11 @@ tf.app.flags.DEFINE_string('output_dir', '/home/faraaz/workspace/music-transcrip
 tf.app.flags.DEFINE_integer('min_length', 5, 'minimum segment length')
 tf.app.flags.DEFINE_integer('max_length', 20, 'maximum segment length')
 tf.app.flags.DEFINE_integer('sample_rate', 16000, 'desired sample rate')
-"""
-test_dirs = ['ENSTDkCl/MUS', 'ENSTDkAm/MUS']
-train_dirs = ['AkPnBcht/MUS', 'AkPnBsdf/MUS', 'AkPnCGdD/MUS', 'AkPnStgb/MUS',
-              'SptkBGAm/MUS', 'SptkBGCl/MUS', 'StbgTGd2/MUS']
-"""
+
+#test_dirs = ['ENSTDkCl/MUS', 'ENSTDkAm/MUS']
+#train_dirs = ['AkPnBcht/MUS', 'AkPnBsdf/MUS', 'AkPnCGdD/MUS', 'AkPnStgb/MUS',
+#              'SptkBGAm/MUS', 'SptkBGCl/MUS', 'StbgTGd2/MUS']
+
 def _find_inactive_ranges(note_sequence):
   """Returns ranges where no notes are active in the note_sequence."""
   start_sequence = sorted(
@@ -299,19 +299,32 @@ def generate_train_set(train_file_pairs):
 def generate_test_set():
   """Generate the test TFRecord."""
   test_file_pairs = []
-
-  """
+  """train_file_pairs = []
+  
   for directory in test_dirs:
     path = os.path.join(FLAGS.input_dir, directory)
-    # path = os.path.join(path, '*.wav')
-    wav_files = glob.iglob('src/**/*.wav', recursive=True)
+    path = os.path.join(path, '*.wav')
+    wav_files = glob.glob(path)
+    #wav_files = glob.iglob('src/**/*.wav', recursive=True)
     # find matching mid files
     for wav_file in wav_files:
       base_name_root, _ = os.path.splitext(wav_file)
       # all wav files should have corresponding mid files
       mid_file = base_name_root + '.mid'
       test_file_pairs.append((wav_file, mid_file))
+  for directory in train_dirs:
+    path = os.path.join(FLAGS.input_dir, directory)
+    path = os.path.join(path, '*.wav')
+    wav_files = glob.glob(path)
+    #wav_files = glob.iglob('src/**/*.wav', recursive=True)
+    # find matching mid files
+    for wav_file in wav_files:
+      base_name_root, _ = os.path.splitext(wav_file)
+      # all wav files should have corresponding mid files
+      mid_file = base_name_root + '.mid'
+      train_file_pairs.append((wav_file, mid_file))
   """
+
   wav_files = glob.iglob('{}/**/*.wav'.format(FLAGS.input_dir), recursive=True)
   for wav_file in wav_files:
     base_name_root, _ = os.path.splitext(wav_file)
@@ -319,14 +332,16 @@ def generate_test_set():
     # timidity replaces . with _, so multiple versions will not exist
     mid_file = base_name_root + '.mid'
     test_file_pairs.append((wav_file, mid_file))
+  
   test_output_name = os.path.join(FLAGS.output_dir,
                                   '{}_test.tfrecord'.format(DATASET))
-  total_files = int(len(test_file_pairs) / 100) # simple lakh midi is about 14x MAPS dataset size
+  total_files = int(len(test_file_pairs) / 5) # simple lakh midi is about 14x MAPS dataset size
   print('found {} total pairs'.format(total_files))
   #buggy_wav = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.wav"
   #buggy_mid = "/home/faraaz/workspace/music-transcription/data/clean_midi/Gordon Lightfoot/Sundown.mid"
   train_file_pairs = test_file_pairs[int(total_files/5):total_files]
   test_file_pairs = test_file_pairs[:int(total_files/5)] # 20% test, 80% train
+  
   train_wavs = [wav for wav, _ in train_file_pairs]
   test_wavs = [wav for wav, _ in test_file_pairs]
   for wav in test_wavs:

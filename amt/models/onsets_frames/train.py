@@ -28,10 +28,10 @@ from amt.models.onsets_frames import train_util
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string(
-    'examples_path', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/clean_midi_train.tfrecord',
+    'examples_path', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/tfrecord/clean_midi_test-big8.tfrecord',
     'Path to a TFRecord file of train/eval examples.')
 tf.app.flags.DEFINE_string(
-    'run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run4/',
+    'run_dir', '/home/faraaz/workspace/music-transcription/amt/models/onsets_frames/run8/',
     'Path where checkpoints and summary events will be located during '
     'training and evaluation. Separate subdirectories `train` and `eval` '
     'will be created within this directory.')
@@ -54,7 +54,7 @@ tf.app.flags.DEFINE_integer(
     'checkpoints_to_keep', 10,
     'Maximum number of checkpoints to keep in `train` mode or 0 for infinite.')
 tf.app.flags.DEFINE_string(
-    'mode', 'train', 'Which mode to use (train, eval, or test).')
+    'mode', 'test', 'Which mode to use (train, eval, or test).')
 tf.app.flags.DEFINE_string(
     'hparams', '',
     'A comma-separated list of `name=value` hyperparameter values.')

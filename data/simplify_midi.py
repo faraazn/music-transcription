@@ -3,16 +3,17 @@ import os
 import mido
 import random
 import time
+import pretty_midi
 
 midi_root_dir = "/home/faraaz/workspace/music-transcription/data/clean_midi/"
 start = time.time()
+midi_file = "/home/faraaz/workspace/music-transcription/data/clean_midi/Redbone/Come and Get Your Love.mid"
 
-"""
 # remove any generated wav files
 wav_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.wav'))
 for filename in wav_files:
   os.remove(filename)
-"""
+
 
 # remove files that are repeats (ex. song.1.mid, song.2.mid, ...)
 """
@@ -22,7 +23,7 @@ for filename in repeat_midi_files:
 """
 
 # remove files with PrettyMIDI conversion errors
-"""
+
 midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.mid'))
 for filename in midi_files:
   try:
@@ -39,7 +40,10 @@ for filename in midi_files:
   except ValueError:
     print("ValueError: {}".format(filename))
     os.remove(filename)
-"""
+  except IndexError:
+    print("IndexError: {}".format(filename))
+    os.remove(filename)
+
 """
 # remove invalid instrument types or instrument class repeats
 program_map = { # map program to invalid id or collapse
@@ -98,6 +102,7 @@ for idx, filename in enumerate(midi_files):
     for msg in track:
       if msg.type == 'program_change':
         if msg.channel == 9:  # drums on channel 10
+          print("found drums")
           program = 129
           collapsed_program = 129
         else:  # not drums
@@ -117,5 +122,19 @@ for idx, filename in enumerate(midi_files):
 
 print("removed {} drum tracks".format(drums_removed))
 """
+midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.mid'))
+midi_files = [midi_file for midi_file in midi_files]
+drums_removed = 0
+
+for idx, filename in enumerate(midi_files):
+  if idx % 100 == 0:
+    print("{} of {}: {}".format(idx, len(midi_files), filename))
+  pm = pretty_midi.PrettyMIDI(filename)
+  for instrument in pm.instruments:
+    if instrument.is_drum:
+      pm.instruments.remove(instrument)
+      drums_removed += 1
+  pm.write(filename)
+print("removed {} drum tracks".format(drums_removed))
 
 print("{}s".format(time.time()-start))
