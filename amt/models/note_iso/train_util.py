@@ -8,29 +8,35 @@ import scipy
 
 class NoteIsoSequence(keras.utils.Sequence):
     """Generate note iso data for training/validation."""
-    def __init__(self, song_paths, sample_duration=64000, n_fft=2048, batch_size=32, 
-                 fs=32000, sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2",
+    def __init__(self, song_paths, sample_duration=32000, n_fft=2048, batch_size=16, 
+                 sample_rate=32000, sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2",
                  instr_indices=[], note_indices=[], song_indices=[], epsilon=0.00001,
                  notesounds_path="/home/faraaz/workspace/music-transcription/data/note_sounds/"):
-        self.song_paths = song_paths  # wav files
+        self.song_paths = song_paths[:]  # wav files
         self.batch_size = batch_size
-        self.fs = fs
+        self.sample_rate = sample_rate
         self.sf2_path = sf2_path
         self.sample_duration = sample_duration
         self.n_fft = n_fft
-        self.instr_indices = instr_indices
-        self.note_indices = note_indices
         self.epsilon = epsilon
-        self.song_indices = song_indices
-        self.instr_indices = instr_indices
-        self.note_indices = note_indices
+        self.song_indices = song_indices[:]
+        self.instr_indices = instr_indices[:]
+        self.note_indices = note_indices[:]
         self.notesounds_path = notesounds_path
+        self.indices_given = song_indices and instr_indices and note_indices
+        self.on_epoch_end()
         
-        if not song_indices or not instr_indices or not note_indices:
-            num_songs = len(song_paths)
+    def on_epoch_end(self):
+        'Update indices after each epoch'
+        if not self.indices_given:
+            self.song_indices = []
+            self.instr_indices = []
+            self.note_indices = []
+            
+            num_songs = len(self.song_paths)
             s_indices = np.random.choice(range(num_songs), size=num_songs, replace=False)
             for s_index in s_indices:
-                song_path = song_paths[s_index]
+                song_path = self.song_paths[s_index]
                 mid_path = song_path[:-4] + ".mid"
                 pm = pretty_midi.PrettyMIDI(mid_path)
                 num_instr = len(pm.instruments)
@@ -73,51 +79,38 @@ class NoteIsoSequence(keras.utils.Sequence):
         y = []
         
         for i in range(self.batch_size):
-            try:
-                instr_id = instr_indices[i]
-                instrument = pm.instruments[instr_id]
-                note_id = note_indices[i]
-                note = instrument.notes[note_id]
-            except IndexError:
-                print("IndexError: song {}, instr {}, note {}, num instr {}".format(
-                      song_index, instr_id, note_id, len(pm.instruments)))
-                instrument = pm.instruments[0]
-                note = instrument.notes[0]
-            sample_start = int(note.start * self.fs)
+            instr_id = instr_indices[i]
+            note_id = note_indices[i]
+            instrument = pm.instruments[instr_id]
+            note = instrument.notes[note_id]
+            sample_start = int(note.start * self.sample_rate)
 
-            padded_samples = pm_samples
-            if len(padded_samples > sample_start+self.sample_duration):
-                padded_samples = padded_samples[sample_start:sample_start+self.sample_duration]
-            if len(padded_samples) < self.sample_duration:
-                padded_samples = np.pad(padded_samples, (0, self.sample_duration-len(padded_samples)), 
-                                        'constant', constant_values=(0,0))
+            padded_samples = self.pad_samples(pm_samples, sample_start)  # shape [sample_duration,]
 
-            noisy_stft = librosa.core.stft(y=padded_samples, n_fft=self.n_fft)  # shape [1025, 126]
-            noisy_stft = self.if_mel_hp_scale(noisy_stft)
+            noisy_stft = librosa.core.stft(y=padded_samples, n_fft=self.n_fft)  # shape [1025, 65]
+            noisy_stft, _, _ = self.if_mel_hp_scale(noisy_stft)  # shape [1024, 65, 2]
+            noisy_stft = noisy_stft[:,:63,:]  # shape [1024, 63, 2]
             
-            annotation = np.zeros((noisy_stft.shape[0], 2, noisy_stft.shape[2]))  # shape [1024, 2, 2]
-            annotation[note.pitch,0,0] = 1  # one hot encode pitch
+            annotation = np.zeros((noisy_stft.shape[0], 1, noisy_stft.shape[2]))  # shape [1024, 1, 2]
+            annotation[note.pitch,0,0] = 1  # one hot encode pitch, range (21, 108)
             annotation[0,0,1] = min(self.sample_duration, note.end-note.start) / self.sample_duration  # range (0, 1]
-            final_input = np.append(noisy_stft, annotation, axis=1)  # shape [1024, 128, 2]
+            final_input = np.append(noisy_stft, annotation, axis=1)  # shape [1024, 64, 2]
             
             
-            iso_file = self.notesounds_path + "{}.wav".format(instrument.program)
+            iso_file = self.notesounds_path + "{}-{}.wav".format(instrument.program, note.pitch)
             _, pm_iso_samples = scipy.io.wavfile.read(iso_file)
-            if len(pm_iso_samples) > self.sample_duration:
-                pm_iso_samples = pm_iso_samples[:self.sample_duration]
-            if len(pm_iso_samples) < self.sample_duration:
-                pm_iso_samples = np.pad(pm_iso_samples, (0, self.sample_duration-len(pm_iso_samples)), 
-                                        'constant', constant_values=(0,0))
+            pm_iso_samples = self.pad_samples(pm_iso_samples, 0)  # shape [sample_duration,]
             
-            iso_stft = librosa.core.stft(y=pm_iso_samples, n_fft=self.n_fft)  # shape [1025, 126]
-            iso_stft = self.if_mel_hp_scale(iso_stft)
+            iso_stft = librosa.core.stft(y=pm_iso_samples, n_fft=self.n_fft)  # shape [1025, 65]
+            iso_stft, _, _ = self.if_mel_hp_scale(iso_stft)  # shape [1024, 65, 2]
             
-            iso_pad = np.zeros((iso_stft.shape[0], 2, iso_stft.shape[2]))  # TODO: 0 -> small number?
-            final_iso = np.concatenate((iso_stft, iso_pad), axis=1)  # shape (1024, 128, 2)
+            iso_pad = np.zeros((iso_stft.shape[0], 1, iso_stft.shape[2]))  # TODO: 0 -> small number?
+            final_iso = np.concatenate((iso_stft, iso_pad), axis=1)  # shape (1024, 64, 2)
 
             assert not np.any(np.isnan(final_iso)) and not np.any(np.isnan(final_input))
             assert np.all(final_iso < 1) and np.all(final_iso > -1)
             assert np.all(final_input <= 1) and np.all(final_input > -1)
+            assert final_iso.shape == final_input.shape
             
             X.append(final_input)
             y.append(final_iso)
@@ -128,59 +121,133 @@ class NoteIsoSequence(keras.utils.Sequence):
         return X, y
     
     
-    def on_epoch_end(self):
-        'Update indices after each epoch'
-        pass
+    def pad_samples(self, samples, sample_start):
+        padded_samples = samples[:]
+        if len(padded_samples > sample_start+self.sample_duration):
+            padded_samples = padded_samples[sample_start:sample_start+self.sample_duration]
+        if len(padded_samples) < self.sample_duration:
+            padded_samples = np.pad(padded_samples, (0, self.sample_duration-len(padded_samples)), 
+                                    'constant', constant_values=(0,0))
+        return padded_samples
     
     
-    def if_mel_hp_scale(stft):
+    def if_mel_hp_scale(self, stft):
         magnitude = np.abs(stft)
         mag_sq = np.square(magnitude)
         lin_mel_matrix = librosa.filters.mel(self.sample_rate, self.n_fft, n_mels=1024)
         mel_sq_mag = np.matmul(lin_mel_matrix, mag_sq)
-        log_mel_sq_mag = np.log(mel_sq_mag + epsilon)
+        log_mel_sq_mag = np.log(mel_sq_mag + self.epsilon)
         mag_scale_factor = max(np.abs(np.amin(log_mel_sq_mag)), np.amax(log_mel_sq_mag)) * 1.25
         final_mag = log_mel_sq_mag / mag_scale_factor
         
         phase = np.angle(stft)
         unwrapped_phase = np.unwrap(phase)
         mel_unwrapped_phase = np.matmul(lin_mel_matrix, unwrapped_phase)
-        mel_inst_freq = np.diff(mel_unwrapped_phase, axis=1)
+        diff_pad = np.zeros((mel_unwrapped_phase.shape[0], 1))
+        mel_inst_freq = np.diff(np.concatenate((diff_pad, mel_unwrapped_phase), axis=1), axis=1)
         phase_scale_factor = max(np.abs(np.amin(mel_inst_freq)), np.amax(mel_inst_freq)) * 1.25
         final_phase = mel_inst_freq / phase_scale_factor
         
         final_stft = np.stack((final_mag, final_phase), axis=2)
-        return final_stft
+        return final_stft, mag_scale_factor, phase_scale_factor
     
     
-    def if_hp_scale(stft):
+    def if_hp_scale(self, stft):
         magnitude = np.abs(stft)
-        log_mag = np.log(magnitude + epsilon)
+        log_mag = np.log(magnitude + self.epsilon)
         mag_scale_factor = max(np.abs(np.amin(log_mag)), np.amax(log_mag)) * 1.25
         final_mag = log_mag / mag_scale_factor
         
         phase = np.angle(stft)
         unwrapped_phase = np.unwrap(phase)
-        inst_freq = np.diff(unwrapped_phase, axis=1)
+        diff_pad = np.zeros((unwrapped_phase.shape[0], 1))
+        inst_freq = np.diff(np.concatenate((diff_pad, unwrapped_phase), axis=1), axis=1)
         phase_scale_factor = max(np.abs(np.amin(inst_freq)), np.amax(inst_freq)) * 1.25
         final_phase = inst_freq / phase_scale_factor
         
         final_stft = np.stack((final_mag, final_phase), axis=2)
         final_stft = final_stft[:-1,:,:]
-        return final_stft
+        return final_stft, mag_scale_factor, phase_scale_factor
     
     
-    def hp_scale(stft)
+    def hp_scale(self, stft):
         magnitude = np.abs(stft)
-        mag_scale_factor = max(np.abs(np.amin(magnitude)), np.amax(magnitude)) * 1.25
+        log_mag = np.log(magnitude + self.epsilon)
+        mag_scale_factor = max(np.abs(np.amin(log_mag)), np.amax(log_mag)) * 1.25
         scaled_mag = magnitude / mag_scale_factor
         
-        phase = np.angle(stft)
-        scaled_phase = phase / (np.pi * 1.25)
+        phase = np.angle(stft, deg=0)
+        phase_scale_factor = np.pi * 1.25
+        scaled_phase = phase / phase_scale_factor
         
         final_stft = np.stack((scaled_mag, scaled_phase), axis=2)
         final_stft = final_stft[:-1,:,:]
-        return final_stft
+        return final_stft, mag_scale_factor, phase_scale_factor
+    
+    
+    def if_mel_hp_unscale(self, stft, mag_scale_factor, phase_scale_factor):
+        m = librosa.filters.mel(self.sample_rate, self.n_fft, n_mels=1024)
+        m_t = np.transpose(m)
+        p = np.matmul(m, m_t)
+        d = [1.0 / x if np.abs(x) > 1.0e-8 else x for x in np.sum(p, axis=0)]
+        mel_lin_matrix = np.matmul(m_t, np.diag(d))
+        
+        final_mag = stft[:,:,0]
+        log_mel_sq_mag = final_mag * mag_scale_factor
+        mel_sq_mag = np.exp(log_mel_sq_mag) - self.epsilon
+        mag_sq = np.matmul(mel_lin_matrix, mel_sq_mag)
+        og_mag = np.sqrt(mag_sq)
+        
+        final_phase = stft[:,:,1]
+        mel_inst_freq = final_phase * phase_scale_factor
+        mel_unwrapped_phase = np.cumsum(mel_inst_freq, axis=1)
+        unwrapped_phase = np.matmul(mel_lin_matrix, mel_unwrapped_phase)
+        
+        og_stft = og_mag * np.exp(1j*unwrapped_phase)
+        return og_stft
+    
+    
+    def if_hp_unscale(self, stft, mag_scale_factor, phase_scale_factor):
+        final_mag = stft[:,:,0]
+        log_mag = final_mag * mag_scale_factor
+        og_mag = np.exp(log_mag) - self.epsilon
+        
+        final_phase = stft[:,:,1]
+        inst_freq = final_phase * phase_scale_factor
+        unwrapped_phase = np.cumsum(inst_freq, axis=1)
+        
+        og_stft = og_mag * np.exp(1j*unwrapped_phase)
+        return og_stft
+    
+    
+    def hp_unscale(self, stft, mag_scale_factor, phase_scale_factor):
+        scaled_mag = stft[:,:,0]
+        log_mag = scaled_mag * mag_scale_factor
+        og_mag = np.exp(log_mag) - self.epsilon
+        
+        scaled_phase = stft[:,:,1]
+        og_phase = scaled_phase * phase_scale_factor
+        
+        og_stft = og_mag * np.exp(1j*og_phase)
+        return og_stft
+
+
+class TensorBoardWrapper(keras.callbacks.TensorBoard):
+    '''Sets the self.validation_data property for use with TensorBoard callback.'''
+
+    def __init__(self, batch_gen, nb_steps, **kwargs):
+        super().__init__(**kwargs)
+        self.batch_gen = batch_gen # The generator.
+        self.nb_steps = nb_steps     # Number of times to call next() on the generator.
+
+    def on_epoch_end(self, epoch, logs):
+        # Fill in the `validation_data` property. Obviously this is specific to how your generator works.
+        # Below is an example that yields images and classification tags.
+        # After it's filled in, the regular on_epoch_end method has access to the validation_data.
+        inputs, outputs = self.batch_gen[epoch]
+        self.validation_data = [inputs, outputs, np.ones(inputs.shape[0]), 0.0]
+        return super().on_epoch_end(epoch, logs)
+    
     
 program_map = { # map program to invalid id or collapse
   # pianos -> acoustic grand piano 

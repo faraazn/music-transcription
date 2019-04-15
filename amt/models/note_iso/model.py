@@ -20,8 +20,14 @@ def sampling(args):
 
 def get_encoder():
     # ENCODER
-    spectrogram = Input(shape=(1024, 128, 2))
-    model = Conv2D(32, (1, 1), padding="same")(spectrogram)
+    spectrogram = Input(shape=(1024, 64, 2))
+    model = Conv2D(16, (1, 1), padding="same")(spectrogram)
+    model = Conv2D(16, (3, 3), padding="same")(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv2D(32, (3, 3), padding="same")(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling2D(pool_size=(2, 2))(model)
+    
     model = Conv2D(32, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = Conv2D(32, (3, 3), padding="same")(model)
@@ -32,50 +38,50 @@ def get_encoder():
     model = LeakyReLU(alpha=0.2)(model)
     model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+    model = MaxPooling2D(pool_size=(4, 2))(model)
     
-    model = Conv2D(128, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(128, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+    model = MaxPooling2D(pool_size=(4, 4))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(2, 2))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
-    
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(2, 2))(model)
     # TODO: how to add minibatch std
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     
     # ENCODED VECTOR
     model = Flatten()(model)
-    model = Dense(256)(model)
-#     model = Activation("sigmoid")(model)
+    model = Dense(64)(model)
+    model = Activation("sigmoid")(model)
     
     return keras.models.Model(spectrogram, model, name="encoder")
 
 
 def get_vae_encoder():
     # ENCODER
-    spectrogram = Input(shape=(1024, 128, 2))
-    model = Conv2D(32, (1, 1), padding="same")(spectrogram)
+    spectrogram = Input(shape=(1024, 64, 2))
+    model = Conv2D(16, (1, 1), padding="same")(spectrogram)
+    model = Conv2D(16, (3, 3), padding="same")(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv2D(16, (3, 3), padding="same")(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling2D(pool_size=(2, 2))(model)
+    
     model = Conv2D(32, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = Conv2D(32, (3, 3), padding="same")(model)
@@ -86,45 +92,39 @@ def get_vae_encoder():
     model = LeakyReLU(alpha=0.2)(model)
     model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+    model = MaxPooling2D(pool_size=(4, 2))(model)
     
-    model = Conv2D(128, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(128, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+    model = MaxPooling2D(pool_size=(4, 4))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(2, 2))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
-    
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(2, 2))(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(2, 2))(model)
     # TODO: how to add minibatch std
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     
     # VARIATIONALLY ENCODED VECTOR
     model = Flatten()(model)
     
-    z_mean = Dense(256)(model)
+    z_mean = Dense(64)(model)
     z_mean = Activation("sigmoid")(z_mean)
     
-    z_log_sigma = Dense(256)(model)
+    z_log_sigma = Dense(64)(model)
     z_log_sigma = Activation("sigmoid")(z_log_sigma)
     
     z = Lambda(sampling)([z_mean, z_log_sigma])
@@ -134,43 +134,35 @@ def get_vae_encoder():
     
 def get_decoder():
     # DECODER
-    latent = Input(shape=(256,))
-    model = Reshape((1, 1, 256))(latent)
+    latent = Input(shape=(64,))
+    model = Reshape((1, 1, 64))(latent)
     model = UpSampling2D(size=(16, 2))(model)
-    model = Conv2D(256, (16, 2), padding="same")(model)
+    model = Conv2D(64, (16, 2), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     # TODO: how to do pixel normalization
     model = BatchNormalization(axis=2)(model)
     model = UpSampling2D(size=(2, 2))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = BatchNormalization(axis=2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = BatchNormalization(axis=2)(model)
-    model = UpSampling2D(size=(2, 2))(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = BatchNormalization(axis=2)(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = BatchNormalization(axis=2)(model)
+#     model = UpSampling2D(size=(2, 2))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = BatchNormalization(axis=2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = BatchNormalization(axis=2)(model)
-    model = UpSampling2D(size=(2, 2))(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = BatchNormalization(axis=2)(model)
+#     model = Conv2D(256, (3, 3), padding="same")(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = BatchNormalization(axis=2)(model)
+#     model = UpSampling2D(size=(2, 2))(model)
     
-    model = Conv2D(256, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
-    model = Conv2D(256, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = BatchNormalization(axis=2)(model)
-    model = UpSampling2D(size=(2, 2))(model)
-    
-    model = Conv2D(128, (3, 3), padding="same")(model)
-    model = LeakyReLU(alpha=0.2)(model)
-    model = BatchNormalization(axis=2)(model)
-    model = Conv2D(128, (3, 3), padding="same")(model)
+    model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
     model = UpSampling2D(size=(2, 2))(model)
@@ -181,15 +173,22 @@ def get_decoder():
     model = Conv2D(64, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
-    model = UpSampling2D(size=(2, 2))(model)
+    model = UpSampling2D(size=(4, 2))(model)
     
     model = Conv2D(32, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
+    model = Conv2D(32, (3, 3), padding="same")(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = BatchNormalization(axis=2)(model)
+    model = UpSampling2D(size=(4, 4))(model)
+    
+    model = Conv2D(16, (3, 3), padding="same")(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = BatchNormalization(axis=2)(model)
     model = Conv2D(2, (3, 3), padding="same")(model)
-#     model = LeakyReLU(alpha=0.2)(model)
-#     model = Activation("relu")(model)
-#     model = BatchNormalization(axis=2)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = BatchNormalization(axis=2)(model)
     spectrogram = Activation("tanh")(model)
     
     return keras.models.Model(latent, spectrogram, name="decoder")
@@ -254,7 +253,7 @@ def get_autoencoder(encoder=None, decoder=None):
         encoder = get_encoder()
         decoder = get_decoder()
     
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 128, 2), name="spectrogram")
+    noisy_spectrogram = keras.layers.Input(shape=(1024, 64, 2), name="spectrogram")
     latent_instr = encoder(noisy_spectrogram)
     reconstructed_instr = decoder(latent_instr)
     autoencoder = keras.models.Model(noisy_spectrogram, reconstructed_instr)
@@ -269,7 +268,7 @@ def get_vae(encoder, decoder):
         encoder = get_vae_encoder()
         decoder = get_decoder()
     
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 128, 2))
+    noisy_spectrogram = keras.layers.Input(shape=(1024, 64, 2))
     z_mean, z_log_var, z = encoder(noisy_spectrogram)
     reconstructed_instr = decoder(z)
     
@@ -280,7 +279,7 @@ def get_vae(encoder, decoder):
         return vae_loss
     
     vae = keras.models.Model(noisy_spectrogram, reconstructed_instr)
-    adam = keras.optimizers.Adam(lr=0.001)
+    adam = keras.optimizers.Adam(lr=0.001, clipnorm=1.)
     vae.compile(optimizer=adam, loss=my_vae_loss)
     return encoder, decoder, vae, my_vae_loss
     

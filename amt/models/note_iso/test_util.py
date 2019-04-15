@@ -26,8 +26,15 @@ def get_metrics(midi_files):
     note_info = {"pitches": [], "lengths": [], "num_notes": 0}
     
     all_instruments = set()
+    errors = 0
     for song_index, midi_file in enumerate(midi_files):
-        pm = pretty_midi.PrettyMIDI(midi_file)
+        if song_index % 100 == 0:
+            print("{}. {}".format(song_index, midi_file))
+        try:
+            pm = pretty_midi.PrettyMIDI(midi_file)
+        except ValueError:
+            errors += 1
+            continue
         assert song_index not in song_info
         num_instruments = len(pm.instruments)
         song_length = pm.get_end_time()
@@ -53,7 +60,7 @@ def get_metrics(midi_files):
                 song_info["note_pitches"].append(note.pitch)
                 song_info["note_lengths"].append(note.end-note.start)
                 
-    data_info = {"num_songs": len(midi_files), 
+    data_info = {"num_songs": len(midi_files)-errors, 
                  "num_notes": note_info["num_notes"],
                  "all_instruments": all_instruments,
                  "num_instruments": len(all_instruments),
@@ -64,8 +71,8 @@ def get_metrics(midi_files):
                  "max_note_length": np.amax(note_info["lengths"]),
                  "mean_note_pitch": np.mean(note_info["pitches"]),
                  "std_note_pitch": np.std(note_info["pitches"]),
-                 "mean_note_length": np.mean(note_info["length"]),
-                 "std_note_pitch": np.std(note_info["length"]),
+                 "mean_note_length": np.mean(note_info["lengths"]),
+                 "std_note_pitch": np.std(note_info["lengths"]),
                  
                  "mean_song_length": np.mean(song_info["song_lengths"]),
                  "std_song_length": np.std(song_info["song_lengths"]),
@@ -92,6 +99,8 @@ def get_metrics(midi_files):
         del instr_info[instr]["num_appearances"]
         
     data_info["instr_info"] = instr_info
+    
+    print("errors: {}".format(errors))
     
     return data_info
                 

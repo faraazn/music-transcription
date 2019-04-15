@@ -10,3 +10,4 @@ run/
 *.h
 clean_midi/
 MAPS/
+logs/

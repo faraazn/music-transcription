@@ -10,10 +10,11 @@ start = time.time()
 midi_file = "/home/faraaz/workspace/music-transcription/data/clean_midi/Redbone/Come and Get Your Love.mid"
 
 # remove any generated wav files
+"""
 wav_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.wav'))
 for filename in wav_files:
   os.remove(filename)
-
+"""
 
 # remove files that are repeats (ex. song.1.mid, song.2.mid, ...)
 """
@@ -21,7 +22,7 @@ repeat_midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.*.mid'))
 for filename in repeat_midi_files:
   os.remove(filename)
 """
-
+"""
 # remove files with PrettyMIDI conversion errors
 
 midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.mid'))
@@ -43,7 +44,7 @@ for filename in midi_files:
   except IndexError:
     print("IndexError: {}".format(filename))
     os.remove(filename)
-
+"""
 """
 # remove invalid instrument types or instrument class repeats
 program_map = { # map program to invalid id or collapse
@@ -122,8 +123,10 @@ for idx, filename in enumerate(midi_files):
 
 print("removed {} drum tracks".format(drums_removed))
 """
+
 midi_files = glob.iglob(os.path.join(midi_root_dir, '**', '*.mid'))
 midi_files = [midi_file for midi_file in midi_files]
+"""
 drums_removed = 0
 
 for idx, filename in enumerate(midi_files):
@@ -136,5 +139,43 @@ for idx, filename in enumerate(midi_files):
       drums_removed += 1
   pm.write(filename)
 print("removed {} drum tracks".format(drums_removed))
+"""
+"""
+removed_pitch = 0
+removed_length = 0
+removed_velocity = 0
+removed_instr = 0
+for idx, filename in enumerate(midi_files):
+  if idx % 100 == 0:
+    print("{} of {}: {}".format(idx, len(midi_files), filename))
+  pm = pretty_midi.PrettyMIDI(filename)
+  for instrument in pm.instruments:
+    for note in instrument.notes:
+      note.velocity = 96
+      if note.pitch < 21 or note.pitch > 108:
+        removed_pitch += 1
+        instrument.notes.remove(note)
+      elif note.end-note.start < 0.02 or note.end-note.start > 15.0:
+        removed_length += 1
+        instrument.notes.remove(note)
+      elif note.velocity < 8:
+        removed_velocity += 1
+        instrument.notes.remove(note)
+    if len(instrument.notes) == 0:
+      pm.instruments.remove(instrument)
+      removed_instr += 1
+  pm.write(filename)
+print("removed_pitch {}, removed_length {}, removed_velocity {}, removed_instr {}".format(removed_pitch, removed_length, removed_velocity, removed_instr))
+"""
+
+removed_pm = 0
+for idx, filename in enumerate(midi_files):
+  if idx % 100 == 0:
+    print("{} of {}: {}".format(idx, len(midi_files), filename))
+  pm = pretty_midi.PrettyMIDI(filename)
+  if len(pm.instruments) == 0:
+    os.remove(filename)
+    removed_pm += 1
+print("removed {}".format(removed_pm))
 
 print("{}s".format(time.time()-start))

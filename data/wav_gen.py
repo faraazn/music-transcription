@@ -27,24 +27,22 @@ for midi_file in midi_files:
 if not os.path.exists(note_sounds_root_dir):
   os.mkdir(note_sounds_root_dir)
 
-# synthesize all types of notes at middle C
+# synthesize all types of notes at all pitches
 num_programs = 128
 velocity = 96  # ff
-pitch = 60  # middle C
 duration = 1  # seconds
-count = 0
-for program in range(num_programs):
+for count, program in enumerate(range(num_programs)):
   if count % print_rate == 0:
     print("{} of {} instruments synthesized".format(count, num_programs))
   pm = pretty_midi.PrettyMIDI()
   instrument = pretty_midi.Instrument(program, is_drum=False)
-  note = pretty_midi.Note(velocity, pitch, 0.0, duration)
-  instrument.notes = [note]
-  pm.instruments = [instrument]
-  pm_samples = pm.fluidsynth(fs=sample_rate, sf2_path=sf2_path)
-  wav_file = note_sounds_root_dir + "{}.wav".format(program)
-  scipy.io.wavfile.write(wav_file, sample_rate, pm_samples)
-  count += 1
+  for pitch in range(21, 109):
+    note = pretty_midi.Note(velocity, pitch, 0.0, duration)
+    instrument.notes = [note]
+    pm.instruments = [instrument]
+    pm_samples = pm.fluidsynth(fs=sample_rate, sf2_path=sf2_path)
+    wav_file = note_sounds_root_dir + "{}-{}.wav".format(program, pitch)
+    scipy.io.wavfile.write(wav_file, sample_rate, pm_samples)
 """
 """
 # synthesize all types of drum hits
