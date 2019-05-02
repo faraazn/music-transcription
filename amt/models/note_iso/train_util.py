@@ -5,12 +5,13 @@ import librosa
 import glob 
 import os
 import scipy
+import random
 
 class NoteIsoSequence(keras.utils.Sequence):
     """Generate note iso data for training/validation."""
     def __init__(self, song_paths, sample_duration=32000, n_fft=2048, batch_size=16, 
                  sample_rate=32000, sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2",
-                 instr_indices=[], note_indices=[], song_indices=[], epsilon=0.00001,
+                 instr_indices=[], note_indices=[], song_indices=[], instr_labels=[], epsilon=0.00001,
                  notesounds_path="/home/faraaz/workspace/music-transcription/data/note_sounds/"):
         self.song_paths = song_paths[:]  # wav files
         self.batch_size = batch_size
@@ -22,40 +23,63 @@ class NoteIsoSequence(keras.utils.Sequence):
         self.song_indices = song_indices[:]
         self.instr_indices = instr_indices[:]
         self.note_indices = note_indices[:]
+        self.instr_labels = instr_labels[:]
         self.notesounds_path = notesounds_path
-        self.indices_given = song_indices and instr_indices and note_indices
+        self.indices_given = self.song_indices and self.instr_indices and self.note_indices
         self.on_epoch_end()
         
     def on_epoch_end(self):
         'Update indices after each epoch'
         if not self.indices_given:
-            self.song_indices = []
-            self.instr_indices = []
-            self.note_indices = []
+            song_indices = []
+            instr_indices = []
+            note_indices = []
+            instr_labels = []  # used for testing classification accuracy
+            
+            total_indices = []
             
             num_songs = len(self.song_paths)
             s_indices = np.random.choice(range(num_songs), size=num_songs, replace=False)
             for s_index in s_indices:
+                cur_song_indices = []
+                
                 song_path = self.song_paths[s_index]
                 mid_path = song_path[:-4] + ".mid"
                 pm = pretty_midi.PrettyMIDI(mid_path)
+                
                 num_instr = len(pm.instruments)
-                i_indices = np.random.choice(range(num_instr), size=num_instr, replace=False)
+                i_indices = range(num_instr)
+                # first get all the notes in the song along with corresponding instrument
                 for i_index in i_indices:
                     instrument = pm.instruments[i_index]
                     assert instrument.is_drum == False
                     num_notes = len(instrument.notes)
-                    n_indices = np.random.choice(range(num_notes), size=num_notes, replace=False)
+                    n_indices = range(num_notes)
                     for n_index in n_indices:
-                        self.song_indices.append(s_index)
-                        self.instr_indices.append(i_index)
-                        self.note_indices.append(n_index)
-                # to ensure 1 song per batch, round to nearest batch size
-                data_size = len(self.note_indices)
-                rounded_size = int(data_size / self.batch_size) * self.batch_size
-                self.song_indices = self.song_indices[:rounded_size]
-                self.instr_indices = self.instr_indices[:rounded_size]
-                self.note_indices = self.note_indices[:rounded_size]
+                        cur_song_indices.append((s_index, i_index, n_index, instrument.program))
+                # shuffle instrument and note indices in the song
+                random.shuffle(cur_song_indices)
+                # put shuffled song note indices into groups of batch_size and append to all song indices
+                for i in range(len(cur_song_indices) // self.batch_size):
+                    total_indices.append(cur_song_indices[i*self.batch_size:(i+1)*self.batch_size])
+            
+            # shuffle batches of song note indices
+            random.shuffle(total_indices)
+                    
+            for batch_indices in total_indices:
+                assert len(batch_indices) == self.batch_size
+                for s_index, i_index, n_index, i_label in batch_indices:
+                    song_indices.append(s_index)
+                    instr_indices.append(i_index)
+                    note_indices.append(n_index)
+                    instr_labels.append(i_label)
+               
+            # now all indices within batch are same song but random note/instrument
+            # consecutive batches have no correlation with corresponding song
+            self.song_indices = song_indices
+            self.instr_indices = instr_indices
+            self.note_indices = note_indices
+            self.instr_labels = instr_labels
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -63,62 +87,77 @@ class NoteIsoSequence(keras.utils.Sequence):
 
     def __getitem__(self, index):
         'Generate one batch of data'
+#         print("index {}".format(index))
         song_indices = self.song_indices[self.batch_size*index:self.batch_size*(index+1)]
         instr_indices = self.instr_indices[self.batch_size*index:self.batch_size*(index+1)]
         note_indices = self.note_indices[self.batch_size*index:self.batch_size*(index+1)]
-        song_index = song_indices[0]
-        assert song_indices.count(song_index) == self.batch_size  # should all be the same
+        try:
+            song_index = song_indices[0]
+            assert song_indices.count(song_index) == self.batch_size  # should all be the same
+        except IndexError:
+            song_index = 0
+            print("IndexError: song_indices {}, index {}, len(indices) {}".format(
+                   song_indices, index, len(self.song_indices)))
     
         song_path = self.song_paths[song_index]
         mid_path = song_path[:-4] + ".mid"
         pm = pretty_midi.PrettyMIDI(mid_path)
-        _, pm_samples = scipy.io.wavfile.read(song_path)
+#         _, pm_samples = scipy.io.wavfile.read(song_path)
             
         
         X = []
         y = []
+        onehot = []
         
         for i in range(self.batch_size):
             instr_id = instr_indices[i]
             note_id = note_indices[i]
             instrument = pm.instruments[instr_id]
             note = instrument.notes[note_id]
-            sample_start = int(note.start * self.sample_rate)
+#             sample_start = int(note.start * self.sample_rate)
 
-            padded_samples = self.pad_samples(pm_samples, sample_start)  # shape [sample_duration,]
+#             padded_samples = self.pad_samples(pm_samples, sample_start)  # shape [sample_duration,]
 
-            noisy_stft = librosa.core.stft(y=padded_samples, n_fft=self.n_fft)  # shape [1025, 65]
-            noisy_stft, _, _ = self.if_mel_hp_scale(noisy_stft)  # shape [1024, 65, 2]
-            noisy_stft = noisy_stft[:,:63,:]  # shape [1024, 63, 2]
+#             noisy_stft = librosa.core.stft(y=padded_samples, n_fft=self.n_fft)  # shape [1025, 65]
+#             noisy_stft, _, _ = self.if_mel_hp_scale(noisy_stft)  # shape [1024, 65, 2]
+#             noisy_stft = noisy_stft[:,:63,:]  # shape [1024, 63, 2]
             
-            annotation = np.zeros((noisy_stft.shape[0], 1, noisy_stft.shape[2]))  # shape [1024, 1, 2]
-            annotation[note.pitch,0,0] = 1  # one hot encode pitch, range (21, 108)
-            annotation[0,0,1] = min(self.sample_duration, note.end-note.start) / self.sample_duration  # range (0, 1]
-            final_input = np.append(noisy_stft, annotation, axis=1)  # shape [1024, 64, 2]
+#             annotation = np.zeros((noisy_stft.shape[0], 1, noisy_stft.shape[2]))  # shape [1024, 1, 2]
+#             annotation[note.pitch,0,0] = 1  # one hot encode pitch, range (21, 108)
+#             annotation[0,0,1] = min(self.sample_duration, note.end-note.start) / self.sample_duration  # range (0, 1]
+#             final_input = np.append(noisy_stft, annotation, axis=1)  # shape [1024, 64, 2]
             
             
             iso_file = self.notesounds_path + "{}-{}.wav".format(instrument.program, note.pitch)
             _, pm_iso_samples = scipy.io.wavfile.read(iso_file)
             pm_iso_samples = self.pad_samples(pm_iso_samples, 0)  # shape [sample_duration,]
             
-            iso_stft = librosa.core.stft(y=pm_iso_samples, n_fft=self.n_fft)  # shape [1025, 65]
-            iso_stft, _, _ = self.if_mel_hp_scale(iso_stft)  # shape [1024, 65, 2]
+            iso_stft = librosa.core.stft(y=pm_iso_samples, n_fft=self.n_fft)  # shape [1025, 63]
+            iso_stft, _, _ = self.hp_scale(iso_stft)  # shape [1024, 63, 2]
             
             iso_pad = np.zeros((iso_stft.shape[0], 1, iso_stft.shape[2]))  # TODO: 0 -> small number?
             final_iso = np.concatenate((iso_stft, iso_pad), axis=1)  # shape (1024, 64, 2)
+            final_iso = final_iso[:1024, :64, 0]
+#             print(instrument.program)
+#             print(final_iso)
 
-            assert not np.any(np.isnan(final_iso)) and not np.any(np.isnan(final_input))
+            assert not np.any(np.isnan(final_iso))# and not np.any(np.isnan(final_input))
             assert np.all(final_iso < 1) and np.all(final_iso > -1)
-            assert np.all(final_input <= 1) and np.all(final_input > -1)
-            assert final_iso.shape == final_input.shape
+#             assert np.all(final_input <= 1) and np.all(final_input > -1)
+#             assert final_iso.shape == final_input.shape
             
-            X.append(final_input)
-            y.append(final_iso)
+#             X.append(final_input)
+            X.append(final_iso)
+#             y.append(final_iso)
+            onehot_label = np.zeros(128)
+            onehot_label[instrument.program] = 1.0
+            onehot.append(onehot_label)
             
         X = np.array(X)
-        y = np.array(y)
+#         y = np.array(y)
+        onehot = np.array(onehot)
 
-        return X, y
+        return X, onehot
     
     
     def pad_samples(self, samples, sample_start):
@@ -174,7 +213,7 @@ class NoteIsoSequence(keras.utils.Sequence):
         magnitude = np.abs(stft)
         log_mag = np.log(magnitude + self.epsilon)
         mag_scale_factor = max(np.abs(np.amin(log_mag)), np.amax(log_mag)) * 1.25
-        scaled_mag = magnitude / mag_scale_factor
+        scaled_mag = log_mag / mag_scale_factor
         
         phase = np.angle(stft, deg=0)
         phase_scale_factor = np.pi * 1.25
@@ -245,7 +284,9 @@ class TensorBoardWrapper(keras.callbacks.TensorBoard):
         # Below is an example that yields images and classification tags.
         # After it's filled in, the regular on_epoch_end method has access to the validation_data.
         inputs, outputs = self.batch_gen[epoch]
-        self.validation_data = [inputs, outputs, np.ones(inputs.shape[0]), 0.0]
+#         print("inputs shape {}".format(inputs.shape))
+#         print("outputs shape {}".format(outputs.shape))
+        self.validation_data = [inputs, outputs, np.ones(inputs.shape[0])]
         return super().on_epoch_end(epoch, logs)
     
     
