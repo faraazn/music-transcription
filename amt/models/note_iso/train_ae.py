@@ -16,8 +16,8 @@ if __name__ == "__main__":
                                       instr_indices=instr_indices, note_indices=note_indices)
 
     encoder, decoder, classifier, autoencoder = get_autoencoder_plus()
-#     encoder = keras.models.load_model("ae+/encoder-1.h")
-#     classifier = keras.models.load_model("ae+/classifier-1.h")
+#     encoder = keras.models.load_model("ae+/encoder-5.h")
+#     classifier = keras.models.load_model("ae+/classifier-5.h")
     classifier.summary()
 #     autoencoder.summary()
     test_generator = NoteIsoSequence(test_wav_files, sample_duration=sample_duration, 

@@ -21,14 +21,14 @@ sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2"
 sample_rate = 32000
 sample_duration = 1 * sample_rate
 n_fft = 2048
-batch_size = 4
+batch_size = 16
 epsilon = 0.0001
 
-epochs = 16
+epochs = 32
 workers = 1
 use_multiprocessing = False
 validation_steps = 4
-steps_per_epoch = 784//4 #None
+steps_per_epoch = None
 
 song_indices = []
 instr_indices = []

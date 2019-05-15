@@ -339,23 +339,80 @@ def get_small_1d_encoder():
     b_init = keras.initializers.Constant(value=0.1)
     # ENCODER
     spectrogram = Input(shape=(1024, 64))#Input(shape=(1024, 64, 2))
-#     model = Conv2D(8, (1, 1), padding="same", bias_initializer=b_init)(spectrogram)
     model = Conv1D(16, 3, data_format="channels_first", padding="same", 
                    activation="relu", bias_initializer=b_init)(spectrogram)
-#     model = LeakyReLU(alpha=0.2)(model)
-#     model = Conv2D(16, (3, 3), padding="same", activation="relu", bias_initializer=b_init)(model)
-#     model = LeakyReLU(alpha=0.2)(model)
+    model = Conv1D(16, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
     model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    model = Flatten()(model)
+    model = Dense(64, bias_initializer=b_init)(model)
+    model = Activation("sigmoid")(model)
+    
+    return keras.models.Model(spectrogram, model, name="small_1d_encoder")
+    
+
+def get_1d_encoder():
+    b_init = keras.initializers.Constant(value=0.1)
+    # ENCODER
+    spectrogram = Input(shape=(1024, 64))#Input(shape=(1024, 64, 2))
+    model = Conv1D(16, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(spectrogram)
+    model = Conv1D(16, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
     model = Conv1D(32, 3, data_format="channels_first", padding="same", 
                    activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
     model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    
+    model = Conv1D(32, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv1D(32, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    
+    model = Conv1D(64, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv1D(64, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    
+    model = Conv1D(128, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv1D(128, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    
+    model = Conv1D(256, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv1D(256, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    
+    model = Conv1D(256, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = Conv1D(256, 3, data_format="channels_first", padding="same", 
+                   activation="relu", bias_initializer=b_init)(model)
+    model = LeakyReLU(alpha=0.2)(model)
+    model = MaxPooling1D(pool_size=2, data_format="channels_first")(model)
+    
     # ENCODED VECTOR
     model = Flatten()(model)
     model = Dense(64, bias_initializer=b_init)(model)
     model = Activation("sigmoid")(model)
 #     model = LeakyReLU(alpha=0.2)(model)
     
-    return keras.models.Model(spectrogram, model, name="small_encoder")
+    return keras.models.Model(spectrogram, model, name="1d_encoder")
 
 
 def get_autoencoder_plus(encoder=None, decoder=None):

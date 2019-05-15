@@ -114,17 +114,17 @@ class NoteIsoSequence(keras.utils.Sequence):
             note_id = note_indices[i]
             instrument = pm.instruments[instr_id]
             note = instrument.notes[note_id]
-#             sample_start = int(note.start * self.sample_rate)
+            sample_start = int(note.start * self.sample_rate)
 
 #             padded_samples = self.pad_samples(pm_samples, sample_start)  # shape [sample_duration,]
 
 #             noisy_stft = librosa.core.stft(y=padded_samples, n_fft=self.n_fft)  # shape [1025, 65]
-#             noisy_stft, _, _ = self.if_mel_hp_scale(noisy_stft)  # shape [1024, 65, 2]
+#             noisy_stft, _, _ = self.hp_scale(noisy_stft)  # shape [1024, 65, 2]
 #             noisy_stft = noisy_stft[:,:63,:]  # shape [1024, 63, 2]
             
 #             annotation = np.zeros((noisy_stft.shape[0], 1, noisy_stft.shape[2]))  # shape [1024, 1, 2]
 #             annotation[note.pitch,0,0] = 1  # one hot encode pitch, range (21, 108)
-#             annotation[0,0,1] = min(self.sample_duration, note.end-note.start) / self.sample_duration  # range (0, 1]
+#             annotation[-1,0,0] = min(self.sample_duration, note.end-note.start) / self.sample_duration  # range (0, 1]
 #             final_input = np.append(noisy_stft, annotation, axis=1)  # shape [1024, 64, 2]
             
             
@@ -142,7 +142,7 @@ class NoteIsoSequence(keras.utils.Sequence):
 #             print(final_iso)
 
             assert not np.any(np.isnan(final_iso))# and not np.any(np.isnan(final_input))
-            assert np.all(final_iso < 1) and np.all(final_iso > -1)
+            assert np.all(final_iso <= 1) and np.all(final_iso >= -1)
 #             assert np.all(final_input <= 1) and np.all(final_input > -1)
 #             assert final_iso.shape == final_input.shape
             

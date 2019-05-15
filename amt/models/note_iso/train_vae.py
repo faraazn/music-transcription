@@ -1,8 +1,19 @@
+# from train_util import NoteIsoSequence
+# from model import get_vae
+# import time
+# from hparams import *
+# import keras
+
+import keras
+import numpy as np
+import glob 
+import os
 from train_util import NoteIsoSequence
-from model import get_vae
+from train_util import TensorBoardWrapper
+from model import get_autoencoder, get_autoencoder_plus
 import time
 from hparams import *
-import keras
+from datetime import datetime
     
 if __name__ == "__main__":
     print("found {} files".format(len(wav_files)))
