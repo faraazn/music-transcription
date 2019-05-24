@@ -137,9 +137,9 @@ class NoteIsoSequence(keras.utils.Sequence):
             
             iso_pad = np.zeros((iso_stft.shape[0], 1, iso_stft.shape[2]))  # TODO: 0 -> small number?
             final_iso = np.concatenate((iso_stft, iso_pad), axis=1)  # shape (1024, 64, 2)
-            final_iso = final_iso[:1024, :64, 0]
+            final_iso = final_iso[:1024, :64, :1]
 #             print(instrument.program)
-#             print(final_iso)
+#             print(final_iso.shape)
 
             assert not np.any(np.isnan(final_iso))# and not np.any(np.isnan(final_input))
             assert np.all(final_iso <= 1) and np.all(final_iso >= -1)
@@ -148,13 +148,13 @@ class NoteIsoSequence(keras.utils.Sequence):
             
 #             X.append(final_input)
             X.append(final_iso)
-#             y.append(final_iso)
+            y.append(final_iso)
             onehot_label = np.zeros(128)
             onehot_label[instrument.program] = 1.0
             onehot.append(onehot_label)
             
         X = np.array(X)
-#         y = np.array(y)
+        y = np.array(y)
         onehot = np.array(onehot)
 
         return X, onehot

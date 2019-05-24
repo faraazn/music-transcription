@@ -27,7 +27,7 @@ epsilon = 0.0001
 epochs = 32
 workers = 1
 use_multiprocessing = False
-validation_steps = 4
+validation_steps = 16
 steps_per_epoch = None
 
 song_indices = []

@@ -29,13 +29,18 @@ if __name__ == "__main__":
                                      epsilon=epsilon, song_indices=song_indices, 
                                      instr_indices=instr_indices, note_indices=note_indices)
     
-    tb = keras.callbacks.TensorBoard(histogram_freq=1, write_grads=True)
-    encoder, decoder, vae, my_vae_loss = get_vae(encoder, decoder)
+    now = datetime.now()
+    log_dir = "logs/ae+-" + now.strftime("%Y-%m-%d-%H:%M:%S") + "/"
+    callbacks = [TensorBoardWrapper(test_generator, log_dir=log_dir, nb_steps=5, histogram_freq=1,
+                                    batch_size=batch_size, write_graph=False, write_grads=True,
+                                    write_images=False)]
+    
+    encoder, decoder, vae, my_vae_loss = get_vae()
     vae.summary()
     vae.fit_generator(generator=train_generator, validation_data=test_generator, 
                       use_multiprocessing=use_multiprocessing, workers=workers, epochs=epochs, 
                       steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
-                      callbacks=[tb])
+                      callbacks=callbacks)
 
     print("saving models...")
     encoder.save("vae/encoder-1.h")
