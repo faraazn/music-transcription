@@ -42,8 +42,8 @@ def train_classifier():
     
 def train_autoencoder():
     print("found {} files".format(len(wav_files)))
-#     encoder = keras.models.load_model("ae/encoder-test.h")
-#     decoder = keras.models.load_model("ae/decoder-test.h")
+    encoder = keras.models.load_model("ae/encoder-test2.h")
+    decoder = keras.models.load_model("ae/decoder-test2.h")
     
     train_generator = NoteIsoSequence(train_wav_files, sample_duration=sample_duration, 
                                       sample_rate=sample_rate, n_fft=n_fft, batch_size=batch_size,
@@ -55,7 +55,7 @@ def train_autoencoder():
                                      instr_indices=instr_indices, note_indices=note_indices)
     
 #     tb = keras.callbacks.TensorBoard(histogram_freq=0, write_grads=True)
-    encoder, decoder, autoencoder = get_autoencoder()
+    encoder, decoder, autoencoder = get_autoencoder(encoder, decoder)
     autoencoder.summary()
     
     now = datetime.now()
@@ -70,16 +70,16 @@ def train_autoencoder():
                               callbacks=callbacks)
 
     print("saving model...")
-    encoder.save("ae/encoder-test.h")
-    decoder.save("ae/decoder-test.h")
-    autoencoder.save("ae/ae-test.h")
+    encoder.save("ae/encoder-test2.h")
+    decoder.save("ae/decoder-test2.h")
+    autoencoder.save("ae/ae-test2.h")
     print("saved autoencoder.")
     
 
 def train_vae():
     print("found {} files".format(len(wav_files)))
-#     encoder = keras.models.load_model("ae/encoder-test.h")
-#     decoder = keras.models.load_model("ae/decoder-test.h")
+#     encoder = keras.models.load_model("vae/encoder-test2.h")
+#     decoder = keras.models.load_model("vae/decoder-test2.h")
     
     train_generator = NoteIsoSequence(train_wav_files, sample_duration=sample_duration, 
                                       sample_rate=sample_rate, n_fft=n_fft, batch_size=batch_size,
@@ -100,17 +100,17 @@ def train_vae():
                                     batch_size=batch_size, write_graph=False, write_grads=True,
                                     write_images=False)]
 
-    autoencoder.fit_generator(generator=train_generator, validation_data=test_generator, 
+    vae.fit_generator(generator=train_generator, validation_data=test_generator, 
                               use_multiprocessing=use_multiprocessing, workers=workers, epochs=epochs, 
                               steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
                               callbacks=callbacks)
 
     print("saving model...")
-    encoder.save("vae/encoder-test.h")
-    decoder.save("vae/decoder-test.h")
-    autoencoder.save("vae/vae-test.h")
-    print("saved autoencoder.")
+    encoder.save("vae/encoder-test2.h")
+    decoder.save("vae/decoder-test2.h")
+    vae.save("vae/vae-test.h")
+    print("saved vae.")
 
     
 if __name__ == "__main__":
-    train_classifier()
+    train_autoencoder()

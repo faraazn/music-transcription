@@ -1,12 +1,13 @@
 import keras
 from keras.layers import *
 from keras import backend as K
+from hparams import EMBED_SIZE, LR, F_BINS
 
 
 def get_encoder():
     b_init = keras.initializers.Constant(value=0.1)
     # ENCODER
-    spectrogram = Input(shape=(1024, 64, 2))
+    spectrogram = Input(shape=(F_BINS, 64, 2))
     model = Conv2D(16, (1, 1), padding="same", bias_initializer=b_init)(spectrogram)
     model = Conv2D(16, (2, 4), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
@@ -52,7 +53,7 @@ def get_encoder():
     
     # ENCODED VECTOR
     model = Flatten()(model)
-    model = Dense(1024, bias_initializer=b_init)(model)
+    model = Dense(EMBED_SIZE, bias_initializer=b_init)(model)
     model = Activation("sigmoid")(model)
     model = LeakyReLU(alpha=0.2)(model)
     
@@ -62,11 +63,11 @@ def get_encoder():
 def get_dense_encoder():
     b_init = keras.initializers.Constant(value=0.1)
     # ENCODER
-    spectrogram = Input(shape=(1024, 64, 2))
+    spectrogram = Input(shape=(F_BINS, 64, 2))
     model = Flatten()(spectrogram)
     model = Dense(256, bias_initializer=b_init)(model)
     model = Activation("relu")(model)
-    model = Dense(64, bias_initializer=b_init)(model)
+    model = Dense(EMBED_SIZE, bias_initializer=b_init)(model)
     model = Activation("sigmoid")(model)
     
     return keras.models.Model(spectrogram, model, name="dense_encoder")
@@ -89,13 +90,13 @@ def sampling(args):
 
     
 def get_vae_encoder():
-    spectrogram = Input(shape=(1024, 64, 1))
+    spectrogram = Input(shape=(F_BINS, 64, 1))
     model = get_small_1d_encoder()(spectrogram)
     
-    z_mean = Dense(32)(model)
+    z_mean = Dense(EMBED_SIZE)(model)
     z_mean = Activation("sigmoid")(z_mean)
     
-    z_log_sigma = Dense(32)(model)
+    z_log_sigma = Dense(EMBED_SIZE)(model)
     z_log_sigma = Activation("sigmoid")(z_log_sigma)
     
     z = Lambda(sampling)([z_mean, z_log_sigma])
@@ -106,10 +107,10 @@ def get_vae_encoder():
 def get_decoder():
     b_init = keras.initializers.Constant(value=0.1)
     # DECODER
-    latent = Input(shape=(64,))
-    model = Reshape((1, 1, 64))(latent)
-    model = UpSampling2D(size=(16, 2))(model)
-    model = Conv2D(64, (16, 2), padding="same", bias_initializer=b_init)(model)
+    latent = Input(shape=(EMBED_SIZE,))
+    model = Reshape((1, 1, EMBED_SIZE))(latent)
+    model = UpSampling2D(size=(4, 2))(model)
+    model = Conv2D(64, (4, 2), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
     # TODO: how to do pixel normalization
     model = BatchNormalization(axis=2)(model)
@@ -145,7 +146,7 @@ def get_decoder():
     model = Conv2D(64, (3, 3), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
-    model = UpSampling2D(size=(4, 2))(model)
+    model = UpSampling2D(size=(2, 2))(model)
     
     model = Conv2D(32, (3, 3), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
@@ -153,12 +154,12 @@ def get_decoder():
     model = Conv2D(32, (3, 3), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
-    model = UpSampling2D(size=(4, 4))(model)
+    model = UpSampling2D(size=(2, 4))(model)
     
     model = Conv2D(16, (3, 3), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
-    model = Conv2D(2, (3, 3), padding="same", bias_initializer=b_init)(model)
+    model = Conv2D(1, (3, 3), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
     model = BatchNormalization(axis=2)(model)
     spectrogram = Activation("tanh")(model)
@@ -167,7 +168,7 @@ def get_decoder():
 
 
 def get_discriminator():
-    spectrogram = Input(shape=(1024, 128, 2))
+    spectrogram = Input(shape=(F_BINS, 128, 2))
     model = Conv2D(32, (1, 1), padding="same")(spectrogram)
     model = Conv2D(32, (3, 3), padding="same")(model)
     model = LeakyReLU(alpha=0.2)(model)
@@ -222,14 +223,31 @@ def get_discriminator():
 def get_small_1d_encoder():
     b_init = keras.initializers.Constant(value=0.1)
     
-    spectrogram = Input(shape=(1024, 64, 1))
+    spectrogram = Input(shape=(F_BINS, 64, 1))
     model = Conv2D(16, (1, 3), padding="same", bias_initializer=b_init)(spectrogram)
     model = LeakyReLU(alpha=0.2)(model)
-    model = Conv2D(16, (1, 3), padding="same", bias_initializer=b_init)(model)
+#     model = MaxPooling2D(pool_size=(1, 8))(model)
+    model = Conv2D(16, (3, 3), padding="same", bias_initializer=b_init)(model)
     model = LeakyReLU(alpha=0.2)(model)
-    model = MaxPooling2D(pool_size=(32, 4))(model)
+    model = MaxPooling2D(pool_size=(32, 16))(model)
+    
+#     model = Conv2D(32, (3, 3), padding="same", bias_initializer=b_init)(spectrogram)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(2, 2))(model)
+#     model = Conv2D(32, (3, 1), padding="same", bias_initializer=b_init)(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(8, 1))(model)
+    
+#     model = Conv2D(64, (3, 3), padding="same", bias_initializer=b_init)(spectrogram)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = Conv2D(64, (3, 3), padding="same", bias_initializer=b_init)(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+#     model = MaxPooling2D(pool_size=(16, 4))(model)
+    
     model = Flatten()(model)
-    model = Dense(64, bias_initializer=b_init)(model)
+#     model = Dense(128, bias_initializer=b_init)(model)
+#     model = LeakyReLU(alpha=0.2)(model)
+    model = Dense(EMBED_SIZE, bias_initializer=b_init)(model)
     model = Activation("sigmoid")(model)
     
     return keras.models.Model(spectrogram, model, name="small_1d_encoder")
@@ -241,8 +259,8 @@ def get_classifier(encoder=None):
         
     encoder.summary()
     
-    adam = keras.optimizers.Adam(lr=0.001)
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 64, 1), name="spectrogram")
+    adam = keras.optimizers.Adam(lr=LR)
+    noisy_spectrogram = keras.layers.Input(shape=(F_BINS, 64, 1), name="spectrogram")
     latent_instr = encoder(noisy_spectrogram)
     
     onehot_instr = Dense(128)(latent_instr)
@@ -259,12 +277,12 @@ def get_autoencoder(encoder=None, decoder=None):
         encoder = get_small_1d_encoder()
         decoder = get_decoder()
     
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 64, 1), name="spectrogram")
+    noisy_spectrogram = keras.layers.Input(shape=(F_BINS, 64, 1), name="spectrogram")
     latent_instr = encoder(noisy_spectrogram)
     reconstructed_instr = decoder(latent_instr)
     autoencoder = keras.models.Model(noisy_spectrogram, reconstructed_instr, name="autoencoder")
     
-    adam = keras.optimizers.Adam(lr=0.001)
+    adam = keras.optimizers.Adam(lr=LR)
     autoencoder.compile(optimizer=adam, loss='mean_squared_error')
     return encoder, decoder, autoencoder
 
@@ -273,9 +291,9 @@ def get_vae(encoder=None, decoder=None):
     if not encoder:
         assert not decoder
         encoder = get_vae_encoder()
-        decoder = get_1d_decoder()
+        decoder = get_decoder()
     
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 64))
+    noisy_spectrogram = keras.layers.Input(shape=(F_BINS, 64, 1))
     z_mean, z_log_var, z = encoder(noisy_spectrogram)
     reconstructed_instr = decoder(z)
     
@@ -286,7 +304,7 @@ def get_vae(encoder=None, decoder=None):
         return vae_loss
     
     vae = keras.models.Model(noisy_spectrogram, reconstructed_instr)
-    adam = keras.optimizers.Adam(lr=0.001)
+    adam = keras.optimizers.Adam(lr=LR)
     vae.compile(optimizer=adam, loss=my_vae_loss)
     return encoder, decoder, vae, my_vae_loss
     
@@ -296,11 +314,11 @@ def get_gan():
     decoder = get_decoder()
     discriminator = get_discriminator()
 
-    adam = keras.optimizers.Adam(lr=0.001)
+    adam = keras.optimizers.Adam(lr=LR)
     discriminator.compile(loss='binary_crossentropy', optimizer=adam, metrics=['accuracy'])
     n_disc_trainable = len(discriminator.trainable_weights)
 
-    noisy_spectrogram = keras.layers.Input(shape=(1024, 128, 2))
+    noisy_spectrogram = keras.layers.Input(shape=(F_BINS, 64, 2))
 
     latent_instr = encoder(noisy_spectrogram)
     reconstructed_instr = decoder(latent_instr)

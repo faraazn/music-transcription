@@ -9,10 +9,11 @@ import random
 
 class NoteIsoSequence(keras.utils.Sequence):
     """Generate note iso data for training/validation."""
-    def __init__(self, song_paths, sample_duration=32000, n_fft=2048, batch_size=16, 
-                 sample_rate=32000, sf2_path="/usr/share/sounds/sf2/FluidR3_GM.sf2",
-                 instr_indices=[], note_indices=[], song_indices=[], instr_labels=[], epsilon=0.00001,
-                 notesounds_path="/home/faraaz/workspace/music-transcription/data/note_sounds/"):
+    def __init__(self, song_paths, sample_duration=32000, n_fft=512, batch_size=16, 
+                 sample_rate=32000, sf2_path="/usr/share/sounds/sf2/arachno.sf2",
+                 instr_indices=[], note_indices=[], song_indices=[], instr_labels=[], 
+                 pitch_labels=[], epsilon=0.00001,
+                 notesounds_path="/home/faraaz/workspace/music-transcription/data/note_sounds/fluid/"):
         self.song_paths = song_paths[:]  # wav files
         self.batch_size = batch_size
         self.sample_rate = sample_rate
@@ -24,6 +25,7 @@ class NoteIsoSequence(keras.utils.Sequence):
         self.instr_indices = instr_indices[:]
         self.note_indices = note_indices[:]
         self.instr_labels = instr_labels[:]
+        self.pitch_labels = pitch_labels[:]
         self.notesounds_path = notesounds_path
         self.indices_given = self.song_indices and self.instr_indices and self.note_indices
         self.on_epoch_end()
@@ -35,6 +37,7 @@ class NoteIsoSequence(keras.utils.Sequence):
             instr_indices = []
             note_indices = []
             instr_labels = []  # used for testing classification accuracy
+            pitch_labels = []  # used for testing classification accuracy
             
             total_indices = []
             
@@ -56,7 +59,8 @@ class NoteIsoSequence(keras.utils.Sequence):
                     num_notes = len(instrument.notes)
                     n_indices = range(num_notes)
                     for n_index in n_indices:
-                        cur_song_indices.append((s_index, i_index, n_index, instrument.program))
+                        note = instrument.notes[n_index]
+                        cur_song_indices.append((s_index, i_index, n_index, instrument.program, note.pitch))
                 # shuffle instrument and note indices in the song
                 random.shuffle(cur_song_indices)
                 # put shuffled song note indices into groups of batch_size and append to all song indices
@@ -68,11 +72,12 @@ class NoteIsoSequence(keras.utils.Sequence):
                     
             for batch_indices in total_indices:
                 assert len(batch_indices) == self.batch_size
-                for s_index, i_index, n_index, i_label in batch_indices:
+                for s_index, i_index, n_index, i_label, p_label in batch_indices:
                     song_indices.append(s_index)
                     instr_indices.append(i_index)
                     note_indices.append(n_index)
                     instr_labels.append(i_label)
+                    pitch_labels.append(p_label)
                
             # now all indices within batch are same song but random note/instrument
             # consecutive batches have no correlation with corresponding song
@@ -80,6 +85,7 @@ class NoteIsoSequence(keras.utils.Sequence):
             self.instr_indices = instr_indices
             self.note_indices = note_indices
             self.instr_labels = instr_labels
+            self.pitch_labels = pitch_labels
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -127,7 +133,8 @@ class NoteIsoSequence(keras.utils.Sequence):
 #             annotation[-1,0,0] = min(self.sample_duration, note.end-note.start) / self.sample_duration  # range (0, 1]
 #             final_input = np.append(noisy_stft, annotation, axis=1)  # shape [1024, 64, 2]
             
-            
+#             rand_pitch = np.random.randint(20) + 40
+#             print(instrument.program)
             iso_file = self.notesounds_path + "{}-{}.wav".format(instrument.program, note.pitch)
             _, pm_iso_samples = scipy.io.wavfile.read(iso_file)
             pm_iso_samples = self.pad_samples(pm_iso_samples, 0)  # shape [sample_duration,]
@@ -137,7 +144,7 @@ class NoteIsoSequence(keras.utils.Sequence):
             
             iso_pad = np.zeros((iso_stft.shape[0], 1, iso_stft.shape[2]))  # TODO: 0 -> small number?
             final_iso = np.concatenate((iso_stft, iso_pad), axis=1)  # shape (1024, 64, 2)
-            final_iso = final_iso[:1024, :64, :1]
+            final_iso = final_iso[:256, :64, :1]
 #             print(instrument.program)
 #             print(final_iso.shape)
 
@@ -157,7 +164,7 @@ class NoteIsoSequence(keras.utils.Sequence):
         y = np.array(y)
         onehot = np.array(onehot)
 
-        return X, onehot
+        return X, X[:] #onehot
     
     
     def pad_samples(self, samples, sample_start):
@@ -173,7 +180,8 @@ class NoteIsoSequence(keras.utils.Sequence):
     def if_mel_hp_scale(self, stft):
         magnitude = np.abs(stft)
         mag_sq = np.square(magnitude)
-        lin_mel_matrix = librosa.filters.mel(self.sample_rate, self.n_fft, n_mels=1024)
+        n_mels = self.n_fft // 2
+        lin_mel_matrix = librosa.filters.mel(self.sample_rate, self.n_fft, n_mels=n_mels)
         mel_sq_mag = np.matmul(lin_mel_matrix, mag_sq)
         log_mel_sq_mag = np.log(mel_sq_mag + self.epsilon)
         mag_scale_factor = max(np.abs(np.amin(log_mel_sq_mag)), np.amax(log_mel_sq_mag)) * 1.25
@@ -225,7 +233,8 @@ class NoteIsoSequence(keras.utils.Sequence):
     
     
     def if_mel_hp_unscale(self, stft, mag_scale_factor, phase_scale_factor):
-        m = librosa.filters.mel(self.sample_rate, self.n_fft, n_mels=1024)
+        n_mels = self.n_fft // 2
+        m = librosa.filters.mel(self.sample_rate, self.n_fft, n_mels=n_mels)
         m_t = np.transpose(m)
         p = np.matmul(m, m_t)
         d = [1.0 / x if np.abs(x) > 1.0e-8 else x for x in np.sum(p, axis=0)]
